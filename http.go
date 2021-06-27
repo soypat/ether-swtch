@@ -49,6 +49,16 @@ func (h *HTTP) Decode(r Reader) (n uint16, err error) {
 	}
 	h.URL = h.buff[idx1+1 : idx2]
 	_log("got url", h.URL)
+	switch string(h.buff[:3]) {
+	case "GET":
+		h.Method = HTTPGET
+	case "POS":
+		h.Method = HTTPPOST
+	case "DEL":
+		h.Method = HTTPDELETE
+	case "PUT":
+		h.Method = HTTPPUT
+	}
 	return n, err
 }
 

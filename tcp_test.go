@@ -10,7 +10,7 @@ import (
 	"github.com/soypat/ether-swtch/hex"
 )
 
-func TestUnmarshalSYNResponse(t *testing.T) {
+func TestUnmarshalSYNPacket(t *testing.T) {
 	var mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
 	var rwconn = &readbacktest{
 		packet: packet{
@@ -86,7 +86,7 @@ func TestUnmarshalSYNResponse(t *testing.T) {
 	}
 }
 
-func TestUnmarshalACKResponse(t *testing.T) {
+func TestUnmarshalACKPacket(t *testing.T) {
 	var mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
 	var rwconn = &readbacktest{
 		packet: packet{
@@ -162,7 +162,7 @@ func TestUnmarshalACKResponse(t *testing.T) {
 	}
 }
 
-func TestUnmarshalPSHACKResponse(t *testing.T) {
+func TestUnmarshalPSHACKRequest(t *testing.T) {
 	var mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
 	var rwconn = &readbacktest{
 		packet: packet{

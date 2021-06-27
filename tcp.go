@@ -73,7 +73,18 @@ func tcpIO(c *Conn) Trigger {
 				return triggerError(err)
 			}
 		}
-		return nil
+		if c.TCP.SubFrame == nil {
+			return nil
+		}
+		// Ease stack usage by returning this function and starting TCP's payload decoding in new function.
+		return func(c *Conn) Trigger {
+			n, err = c.TCP.SubFrame.Decode(c.conn)
+			c.n += n
+			if err != nil {
+				return triggerError(err)
+			}
+			return nil
+		}
 	}
 
 	// Marshal block.
