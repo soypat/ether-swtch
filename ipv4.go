@@ -67,9 +67,10 @@ func ipv4IO(c *Conn) Trigger {
 // IP header data.
 
 const (
-	IPHEADER_FLAG_DONTFRAGMENT = 0x4000
-	IPHEADER_VERSION_4         = 0x45
-	IPHEADER_PROTOCOL_TCP      = 6
+	IPHEADER_FLAG_DONTFRAGMENT  = 0x4000
+	IPHEADER_FLAG_MOREFRAGMENTS = 0x8000
+	IPHEADER_VERSION_4          = 0x45
+	IPHEADER_PROTOCOL_TCP       = 6
 )
 
 // See https://hpd.gasmi.net/ to decode Hex Frames
@@ -86,8 +87,6 @@ type IPv4 struct {
 	// Payload length in number of octets. Needed to calculate Total Length field.
 	Plen uint16
 }
-
-type IPFlags uint16
 
 func (ip *IPv4) Version() uint8      { return ip.Data[0] }
 func (ip *IPv4) IHL() uint8          { return ip.Data[1] }
@@ -113,3 +112,9 @@ func (ip *IPv4) FrameLength() uint16 {
 func (ip *IPv4) String() string {
 	return "IPv4 " + ip.Source().String() + "->" + ip.Destination().String()
 }
+
+type IPFlags uint16
+
+func (f IPFlags) DontFragment() bool     { return f&IPHEADER_FLAG_DONTFRAGMENT != 0 }
+func (f IPFlags) MoreFragments() bool    { return f&IPHEADER_FLAG_MOREFRAGMENTS != 0 }
+func (f IPFlags) FragmentOffset() uint16 { return uint16(f) & 0x1fff }

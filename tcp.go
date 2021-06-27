@@ -56,11 +56,13 @@ func tcpIO(c *Conn) Trigger {
 		// Unmarshal block.
 		n, err = c.conn.Read(c.TCP.Header[:])
 		c.n += n
+		if n >= 12 {
+			// switch Ack and Seq (client ack is our seq and vice versa)
+			bytealg.Swap(c.TCP.Header[4:8], c.TCP.Header[8:12])
+		}
 		if err != nil {
 			return triggerError(err)
 		}
-		// switch Ack and Seq (client ack is our seq and vice versa)
-		bytealg.Swap(c.TCP.Header[4:8], c.TCP.Header[8:12])
 		_log("tcp:decode", c.TCP.Header[:n])
 
 		// Options are present branch
@@ -73,6 +75,7 @@ func tcpIO(c *Conn) Trigger {
 		}
 		return nil
 	}
+
 	// Marshal block.
 	if c.TCP.PseudoHeaderInfo.Version() != IPHEADER_VERSION_4 {
 		return triggerError(ErrNotIPv4)
@@ -260,7 +263,10 @@ const flaglen = 3
 var flagbuff = [2 + (flaglen+1)*9]byte{}
 
 // StringFlags returns human readable flag string. i.e:
-// "[SYN,ACK]".
+//  "[SYN,ACK]"
+// Flags are printed in order from LSB (FIN) to MSB (NS).
+// All flags are printed with length of 3, so a NS flag will
+// end with a space i.e. [ACK,NS ]
 //
 // Beware use on AVR boards and other tiny places as it causes
 // a lot of heap allocation and can quickly drain space.
