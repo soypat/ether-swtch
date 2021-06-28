@@ -59,15 +59,16 @@ func tcpIO(c *Conn) Trigger {
 		if n >= 12 {
 			// switch Ack and Seq (client ack is our seq and vice versa)
 			bytealg.Swap(c.TCP.Header[4:8], c.TCP.Header[8:12])
+			c.TCP.DataOffset = c.TCP.Offset()
 		}
 		if err != nil {
 			return triggerError(err)
 		}
 		_log("tcp:decode", c.TCP.Header[:n])
-
 		// Options are present branch
-		for i := 0; i < int(c.TCP.Offset()-5); i++ {
-			n, err = c.conn.Read(c.TCP.Options[4:8]) // discard options for now
+		for i := 0; i < int(c.TCP.DataOffset-5); i++ {
+			oi := (i % (len(c.TCP.Options) / TCP_WORDLEN)) * 4 // Option index rewrites options if exceed option array length
+			n, err = c.conn.Read(c.TCP.Options[oi : oi+TCP_WORDLEN])
 			c.n += n
 			if err != nil {
 				return triggerError(err)
@@ -228,7 +229,7 @@ func (tcp *TCP) encodeOptions(w Writer) (n uint16, err error) {
 	const maxlen = uint8(len(tcp.Options)) / TCP_WORDLEN
 	if tcp.DataOffset > 5 {
 		if tcp.DataOffset-5 > maxlen {
-			tcp.DataOffset = maxlen
+			tcp.DataOffset = 5 + maxlen
 		}
 		n, err = w.Write(tcp.Options[0 : (tcp.DataOffset-5)*TCP_WORDLEN])
 	}

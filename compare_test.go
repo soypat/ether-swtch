@@ -77,7 +77,7 @@ func assertEqualTCP(a, b *TCP) (errs []error) {
 	if a.UrgentPtr() != b.UrgentPtr() {
 		errs = append(errs, fmt.Errorf("urg. ptr %d != %d", a.UrgentPtr(), b.UrgentPtr()))
 	}
-	if bytes.Equal(a.Options[:], b.Options[:]) {
+	if !bytes.Equal(a.Options[:], b.Options[:]) {
 		errs = append(errs, fmt.Errorf("options  %0x != %0x", a.Options, b.Options))
 	}
 	return errs
