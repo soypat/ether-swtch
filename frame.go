@@ -5,6 +5,8 @@ import "net"
 type int_t = uint16
 type Reader interface {
 	Read(b []byte) (n int_t, err error)
+	// Discard discards packet data. Reader is terminated as well.
+	Discard() error
 }
 
 type Writer interface {
@@ -15,8 +17,8 @@ type PacketReader interface {
 }
 type PacketWriter interface {
 	Writer
+	// Flush writer buffer to the underlying stream.
 	Flush() error
-	Reset() error
 }
 
 // Datagrammer can marshal an unmarshal packets sent over ethernet.

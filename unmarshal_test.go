@@ -27,6 +27,7 @@ func (p *packet) Read(b []byte) (n uint16, err error) {
 	}
 	return n, nil
 }
+func (p *packet) Discard() error { return nil }
 
 func packetsFromFile(t *testing.T, filename string) []packet {
 	fp, err := os.Open(filename)
