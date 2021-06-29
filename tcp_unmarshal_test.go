@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/soypat/ether-swtch/hex"
 )
@@ -426,7 +425,8 @@ func (r *readbacktest) Reset() error {
 	return nil
 }
 
-func (r *readbacktest) Send() error                   { return nil }
-func (r *readbacktest) SetDeadline(t time.Time) error { return nil }
+func (r *readbacktest) NextPacket() (Reader, error) { return &r.packet, nil }
+
+func (r *readbacktest) Flush() error { return nil }
 
 func (r *readbacktest) sent() []byte { return r.written }

@@ -38,7 +38,7 @@ func arpIO(c *Conn) Trigger {
 	}
 	// Unmarshalling block.
 	c.ARPv4[5] = 0 // erase proto size to prevent false positive on ipv6 error checking
-	n, err = c.conn.Read(c.ARPv4[:])
+	n, err = c.packet.Read(c.ARPv4[:])
 	c.n += n
 	_log("arp decode:", c.ARPv4[:n])
 	if err != nil {

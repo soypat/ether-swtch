@@ -54,7 +54,7 @@ func tcpIO(c *Conn) Trigger {
 	var err error
 	if c.read {
 		// Unmarshal block.
-		n, err = c.conn.Read(c.TCP.Header[:])
+		n, err = c.packet.Read(c.TCP.Header[:])
 		c.n += n
 		if n >= 12 {
 			// switch Ack and Seq (client ack is our seq and vice versa)
@@ -68,7 +68,7 @@ func tcpIO(c *Conn) Trigger {
 		// Options are present branch
 		for i := 0; i < int(c.TCP.DataOffset-5); i++ {
 			oi := (i % (len(c.TCP.Options) / TCP_WORDLEN)) * 4 // Option index rewrites options if exceed option array length
-			n, err = c.conn.Read(c.TCP.Options[oi : oi+TCP_WORDLEN])
+			n, err = c.packet.Read(c.TCP.Options[oi : oi+TCP_WORDLEN])
 			c.n += n
 			if err != nil {
 				return triggerError(err)
@@ -79,7 +79,7 @@ func tcpIO(c *Conn) Trigger {
 		}
 		// Ease stack usage by returning this function and starting TCP's payload decoding in new function.
 		return func(c *Conn) Trigger {
-			n, err = c.TCP.SubFrame.Decode(c.conn)
+			n, err = c.TCP.SubFrame.Decode(c.packet)
 			c.n += n
 			if err != nil {
 				return triggerError(err)

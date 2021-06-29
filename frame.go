@@ -2,15 +2,31 @@ package swtch
 
 import "net"
 
+type int_t = uint16
 type Reader interface {
-	Read(b []byte) (n uint16, err error)
+	Read(b []byte) (n int_t, err error)
 }
+
 type Writer interface {
-	Write(b []byte) (n uint16, err error)
+	Write(b []byte) (n int_t, err error)
+}
+type PacketReader interface {
+	NextPacket() (Reader, error)
+}
+type PacketWriter interface {
+	Writer
+	Flush() error
+	Reset() error
+}
+
+// Datagrammer can marshal an unmarshal packets sent over ethernet.
+type Datagrammer interface {
+	PacketWriter
+	PacketReader
 }
 type Frame interface {
-	Decode(r Reader) (uint16, error)
-	Encode(w Writer) (uint16, error)
+	Decode(r Reader) (int_t, error)
+	Encode(w Writer) (int_t, error)
 	SetResponse(net.HardwareAddr) error
 	FrameLength() uint16
 }

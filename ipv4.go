@@ -40,7 +40,7 @@ func ipv4IO(c *Conn) Trigger {
 	var err error
 	if c.read {
 		// should read all the data
-		n, err = c.conn.Read(c.IPv4.Data[:])
+		n, err = c.packet.Read(c.IPv4.Data[:])
 		c.n += n
 		_log("ip4:decoded", c.IPv4.Data[:n])
 		if err != nil {

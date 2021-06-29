@@ -56,14 +56,14 @@ func etherIO(c *Conn) Trigger {
 		return nil
 	}
 	// Unmarshalling logic.
-	n, err = c.conn.Read(f.data[0:14])
+	n, err = c.packet.Read(f.data[0:14])
 	c.n += n
 	_log("eth:decoded", f.data[0:n])
 	if err != nil {
 		return triggerError(err)
 	}
 	if f.IsVLAN() {
-		n, err = c.conn.Read(f.data[14:16])
+		n, err = c.packet.Read(f.data[14:16])
 		c.n += n
 		if err != nil {
 			return triggerError(err)

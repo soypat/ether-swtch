@@ -1,20 +1,8 @@
 package swtch
 
 import (
-	"time"
-
 	"net"
 )
-
-// RConn is a reduced instruction version
-// of Go's std library's net.Conn
-type RConn interface {
-	Reader
-	Writer
-	Reset() error
-	Send() error // not actually part of the std library.
-	SetDeadline(t time.Time) error
-}
 
 // Wrapper for a Conn
 type Conn struct {
@@ -27,14 +15,15 @@ type Conn struct {
 	// minimum packet length. will pad extra
 	minPlen uint16
 	read    bool
-	conn    RConn
+	conn    Datagrammer
+	packet  Reader
 	macAddr net.HardwareAddr
 	err     error
 }
 
 type Trigger func(c *Conn) Trigger
 
-func NewTCPConn(rw RConn, payload Frame, MAC net.HardwareAddr) *Conn {
+func NewTCPConn(rw Datagrammer, payload Frame, MAC net.HardwareAddr) *Conn {
 	conn := &Conn{
 		macAddr:  MAC,
 		Ethernet: new(Ethernet),
@@ -58,6 +47,11 @@ func (c *Conn) Encode() error {
 func (c *Conn) Decode() error {
 	_log("conn:decode")
 	c.read = true
+	r, err := c.conn.NextPacket()
+	if err != nil {
+		return err
+	}
+	c.packet = r
 	return c.runIO()
 }
 
