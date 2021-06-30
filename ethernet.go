@@ -5,7 +5,8 @@ package swtch
 
 import (
 	"encoding/binary"
-	"net"
+
+	"github.com/soypat/net"
 )
 
 // Ethernet state machine logic

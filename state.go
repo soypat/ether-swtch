@@ -1,7 +1,7 @@
 package swtch
 
 import (
-	"net"
+	"github.com/soypat/net"
 )
 
 // Wrapper for a Conn
@@ -38,7 +38,7 @@ func NewTCPConn(rw Datagrammer, payload Frame, MAC net.HardwareAddr) *Conn {
 	return conn
 }
 
-func (c *Conn) Encode() error {
+func (c *Conn) SendResponse() error {
 	_log("conn:encode")
 	c.read = false
 	return c.runIO()

@@ -3,7 +3,7 @@ package swtch
 import (
 	"encoding/binary"
 
-	"net"
+	"github.com/soypat/net"
 
 	"github.com/soypat/ether-swtch/bytealg"
 	"github.com/soypat/ether-swtch/rfc791"

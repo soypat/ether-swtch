@@ -1,20 +1,21 @@
 package swtch
 
-import "net"
+import "github.com/soypat/net"
 
-type int_t = uint16
 type Reader interface {
-	Read(b []byte) (n int_t, err error)
+	Read(b []byte) (n uint16, err error)
 	// Discard discards packet data. Reader is terminated as well.
 	Discard() error
 }
 
 type Writer interface {
-	Write(b []byte) (n int_t, err error)
+	Write(b []byte) (n uint16, err error)
 }
+
 type PacketReader interface {
 	NextPacket() (Reader, error)
 }
+
 type PacketWriter interface {
 	Writer
 	// Flush writer buffer to the underlying stream.
@@ -26,9 +27,10 @@ type Datagrammer interface {
 	PacketWriter
 	PacketReader
 }
+
 type Frame interface {
-	Decode(r Reader) (int_t, error)
-	Encode(w Writer) (int_t, error)
+	Decode(r Reader) (uint16, error)
+	Encode(w Writer) (uint16, error)
 	SetResponse(net.HardwareAddr) error
 	FrameLength() uint16
 }

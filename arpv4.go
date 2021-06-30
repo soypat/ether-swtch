@@ -1,7 +1,7 @@
 package swtch
 
 import (
-	"net"
+	"github.com/soypat/net"
 
 	"github.com/soypat/ether-swtch/bytealg"
 )

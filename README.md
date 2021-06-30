@@ -8,7 +8,7 @@ Low level Ethernet stack marshaller/unmarshaller for use in tiny places.
 package main
 
 import (
-    "net"
+    "github.com/soypat/net"
 
     swtch "github.com/soypat/ether-swtch"
 	"github.com/soypat/ether-swtch/hex"

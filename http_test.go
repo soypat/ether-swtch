@@ -2,8 +2,9 @@ package swtch
 
 import (
 	"io"
-	"net"
 	"testing"
+
+	"github.com/soypat/net"
 
 	"github.com/soypat/ether-swtch/hex"
 )

@@ -2,8 +2,9 @@ package swtch
 
 import (
 	"io"
-	"net"
 	"testing"
+
+	"github.com/soypat/net"
 
 	"github.com/soypat/ether-swtch/hex"
 )
@@ -54,7 +55,7 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 		}
 		// Prevent modification of frame by skipping default tcpSetCtl routine.
 		connTx.start = etherCtl
-		err = connTx.Encode()
+		err = connTx.SendResponse()
 		if err != nil {
 			t.Error(err)
 		}
