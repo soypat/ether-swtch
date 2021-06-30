@@ -9,7 +9,7 @@ var SDB bool
 // SDB does not change
 func _log(msg string, datas ...[]byte) {
 	if SDB {
-		print(msg)
+		print("swtch:" + msg)
 		for d := range datas {
 			print(" 0x")
 			hex.PrintBytes(datas[d])

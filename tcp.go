@@ -13,6 +13,7 @@ import (
 // subframe response is set before encoding TCP frame and setting it's response
 // This is so TCP checksum is done correctly
 func tcpSetCtl(c *Conn) Trigger {
+	_log("tcpSetCtl")
 	var trigErr Trigger
 	if c.read { // if unmarshalling there is no work here to do.
 		return etherCtl
@@ -61,10 +62,10 @@ func tcpIO(c *Conn) Trigger {
 			bytealg.Swap(c.TCP.Header[4:8], c.TCP.Header[8:12])
 			c.TCP.DataOffset = c.TCP.Offset()
 		}
+		_log("tcp:decode", c.TCP.Header[:n])
 		if err != nil {
 			return triggerError(err)
 		}
-		_log("tcp:decode", c.TCP.Header[:n])
 		// Options are present branch
 		for i := 0; i < int(c.TCP.DataOffset-5); i++ {
 			oi := (i % (len(c.TCP.Options) / TCP_WORDLEN)) * 4 // Option index rewrites options if exceed option array length
@@ -87,7 +88,7 @@ func tcpIO(c *Conn) Trigger {
 			return nil
 		}
 	}
-
+	_log("tcp:encode")
 	// Marshal block.
 	if c.TCP.PseudoHeaderInfo.Version() != IPHEADER_VERSION_4 {
 		return triggerError(ErrNotIPv4)
@@ -108,7 +109,6 @@ func tcpIO(c *Conn) Trigger {
 	for i := range encoders {
 		_, err = encoders[i](checksum)
 		if err != nil {
-			_log("tcp:err encoding checksum")
 			return triggerError(err)
 		}
 	}
@@ -127,6 +127,7 @@ func tcpIO(c *Conn) Trigger {
 
 // set ARP response
 func tcpSet(c *Conn) Trigger {
+	_log("tcpSet")
 	tcp := c.TCP
 	bytealg.Swap(tcp.Header[0:2], tcp.Header[2:4])
 	if tcp.PseudoHeaderInfo == nil {

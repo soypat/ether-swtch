@@ -12,6 +12,7 @@ import (
 // IP state machine logic.
 
 func ipv4Ctl(c *Conn) Trigger {
+	_log("ip4Ctl")
 	if errTrig := ipv4IO(c); errTrig != nil {
 		return errTrig
 	}
@@ -27,6 +28,7 @@ func ipv4Ctl(c *Conn) Trigger {
 
 // set IPv4 response fields.
 func ipv4Set(c *Conn) Trigger {
+	_log("ip4Set")
 	bytealg.Swap(c.IPv4.Source(), c.IPv4.Destination())
 	c.IPv4.Plen = 0
 	if c.TCP != nil {
@@ -42,12 +44,13 @@ func ipv4IO(c *Conn) Trigger {
 		// should read all the data
 		n, err = c.packet.Read(c.IPv4.Data[:])
 		c.n += n
-		_log("ip4:decoded", c.IPv4.Data[:n])
+		_log("ip4:decode", c.IPv4.Data[:n])
 		if err != nil {
 			return triggerError(err)
 		}
 		return nil
 	}
+	_log("ip4:send", c.IPv4.Data[:n])
 	// Set TotalLength field. IPv4's payload must have been set beforehand.
 	binary.BigEndian.PutUint16(c.IPv4.Data[2:4], c.IPv4.FrameLength())
 	// set checksum field to zero to calculate new RFC791 checksum.

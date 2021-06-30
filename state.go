@@ -39,13 +39,13 @@ func NewTCPConn(rw Datagrammer, payload Frame, MAC net.HardwareAddr) *Conn {
 }
 
 func (c *Conn) SendResponse() error {
-	_log("conn:encode")
+	_log("sendResp")
 	c.read = false
 	return c.runIO()
 }
 
 func (c *Conn) Decode() error {
-	_log("conn:decode")
+	_log("decode")
 	c.read = true
 	r, err := c.conn.NextPacket()
 	if err != nil {
@@ -56,6 +56,7 @@ func (c *Conn) Decode() error {
 }
 
 func (c *Conn) runIO() error {
+	_log("runIO")
 	c.err = nil // reset error
 	c.n = 0
 	// trig contains statefunction
@@ -66,6 +67,7 @@ func (c *Conn) runIO() error {
 	// End of write tasks
 	if !c.read {
 		if c.err == nil && c.n < c.minPlen {
+			_log("runIO:padding")
 			n, err := c.conn.Write(make([]byte, c.minPlen-c.n))
 			c.n += n
 			if err != nil {

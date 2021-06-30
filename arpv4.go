@@ -10,6 +10,7 @@ import (
 
 // set ARP response
 func arpSet(c *Conn) Trigger {
+	_log("arpSet")
 	// These must be pre-filled by an arp response
 	if len(c.macAddr) != int(c.ARPv4.HWSize()) {
 		return triggerError(ErrBadMac)
@@ -24,10 +25,11 @@ func arpSet(c *Conn) Trigger {
 }
 
 func arpIO(c *Conn) Trigger {
-	_log("conn:arpIO")
+
 	var n uint16
 	var err error
 	if !c.read {
+		_log("arp:send", c.ARPv4[:])
 		// Marshal block
 		n, err = c.conn.Write(c.ARPv4[:])
 		if err != nil {
@@ -40,7 +42,7 @@ func arpIO(c *Conn) Trigger {
 	c.ARPv4[5] = 0 // erase proto size to prevent false positive on ipv6 error checking
 	n, err = c.packet.Read(c.ARPv4[:])
 	c.n += n
-	_log("arp decode:", c.ARPv4[:n])
+	_log("arp:decode", c.ARPv4[:n])
 	if err != nil {
 		return triggerError(err)
 	}
@@ -72,20 +74,6 @@ Legend:
 | ethern| IP       |macaddr|          |ask|reply|                    |for op=1|
 | = 1   |=0x0800   |=6     |=4        | 1 | 2   |       known        |=0      |
 */
-func (a *ARPv4) SetResponse(MAC net.HardwareAddr) error {
-	// These must be pre-filled by an arp response
-	if len(MAC) != int(a.HWSize()) {
-		return ErrBadMac
-	}
-	// copy HW AoS to HW AoT and MAC to HW AoS
-	copy(a[18:24], a[8:14])
-	copy(a[8:14], MAC)
-	// switch target and source protocol addresses
-	for i := uint8(0); i < a.ProtoSize(); i++ {
-		a[i+14], a[i+24] = a[i+24], a[i+14]
-	}
-	return nil
-}
 
 type ARPv4 [28]byte
 
@@ -107,12 +95,6 @@ func (a *ARPv4) HWSize() uint8 { return a[4] }
 
 // ProtoSize Protocol address size (IPv4 is 4, should always return 4)
 func (a *ARPv4) ProtoSize() uint8 { return a[5] }
-
-func (a *ARPv4) Encode(w Writer) (n uint16, err error) {
-	n, err = w.Write(a[:])
-	_log("arp encode:", a[:n])
-	return
-}
 
 func (a *ARPv4) FrameLength() uint16 { return uint16(len(a)) }
 

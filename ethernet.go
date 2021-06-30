@@ -15,7 +15,7 @@ import (
 // frame. Yields more triggers to other functions which
 // decode following frames
 func etherCtl(c *Conn) Trigger {
-	_log("conn:ethCtl")
+	_log("ethCtl")
 	if errTrig := etherIO(c); errTrig != nil {
 		return errTrig
 	}
@@ -37,7 +37,7 @@ func etherCtl(c *Conn) Trigger {
 // etherIO reads to or writes data from
 // ethernet frame in Conn.
 func etherIO(c *Conn) Trigger {
-	_log("conn:ethIO")
+	_log("ethIO")
 	var n uint16
 	var err error
 	f := c.Ethernet
@@ -49,7 +49,7 @@ func etherIO(c *Conn) Trigger {
 			n = 16
 		}
 		n, err = c.conn.Write(f.data[:n])
-		_log("eth:encoded", f.data[:n])
+		_log("eth:send", f.data[:n])
 		c.n += n
 		if err != nil {
 			return triggerError(err)
@@ -59,7 +59,7 @@ func etherIO(c *Conn) Trigger {
 	// Unmarshalling logic.
 	n, err = c.packet.Read(f.data[0:14])
 	c.n += n
-	_log("eth:decoded", f.data[0:n])
+	_log("eth:decoded", f.data[:n])
 	if err != nil {
 		return triggerError(err)
 	}
@@ -75,6 +75,7 @@ func etherIO(c *Conn) Trigger {
 
 // set Ethernet
 func etherSet(c *Conn) Trigger {
+	_log("ethSet")
 	f := c.Ethernet
 	copy(f.Destination(), f.Source())
 	copy(f.Source(), c.macAddr)

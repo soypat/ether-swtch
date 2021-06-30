@@ -36,7 +36,7 @@ const (
 
 func (h *HTTP) Decode(r Reader) (n uint16, err error) {
 	n, err = r.Read(h.buff[:])
-	_log("http:decoded ", h.buff[:n])
+	_log("http:decode", h.buff[:n])
 	if err != nil && err != io.EOF {
 		return n, err
 	}
@@ -64,6 +64,7 @@ func (h *HTTP) Decode(r Reader) (n uint16, err error) {
 }
 
 func (h *HTTP) Encode(w Writer) (n uint16, err error) {
+	_log("http:send", h.buff[:n])
 	if len(h.Body) == 0 {
 		return 0, nil
 	}
