@@ -63,10 +63,16 @@ func (c *Conn) runIO() error {
 	for trig != nil {
 		trig = trig(c)
 	}
-	if !c.read && c.err == nil && c.n < c.minPlen {
-		n, err := c.conn.Write(make([]byte, c.minPlen-c.n))
-		c.n += n
-		c.err = err
+	// End of write tasks
+	if !c.read {
+		if c.err == nil && c.n < c.minPlen {
+			n, err := c.conn.Write(make([]byte, c.minPlen-c.n))
+			c.n += n
+			if err != nil {
+				return err
+			}
+		}
+		c.err = c.conn.Flush()
 	}
 	return c.err
 }
