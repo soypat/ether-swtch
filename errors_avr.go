@@ -1,11 +1,6 @@
-//+build !avr
+//+build avr
 
 package swtch
-
-import (
-	"errors"
-	"io"
-)
 
 var (
 	ErrUnknownEthProtocol = errors.New("swtch: unable to follow ethernet protocol ctl")
@@ -22,5 +17,5 @@ var (
 )
 
 func IsEOF(err error) bool {
-	return err == io.EOF
+	return err.Error() == "EOF"
 }
