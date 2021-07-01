@@ -46,11 +46,19 @@ func (c *Conn) SendResponse() error {
 
 func (c *Conn) Decode() error {
 	_log("decode")
+	if c.packet != nil {
+		// Here we discard any unread data before procuring a new packet.
+		err := c.packet.Discard()
+		if err != nil {
+			return err
+		}
+	}
 	c.read = true
 	r, err := c.conn.NextPacket()
 	if err != nil {
 		return err
 	}
+
 	c.packet = r
 	return c.runIO()
 }

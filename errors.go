@@ -13,4 +13,5 @@ var (
 	ErrNeedPseudoHeader = errors.New("swtch: need pseudo header for tcp frame")
 
 	ErrHTTPField = errors.New("swtch: parsing http field")
+	ErrNilReader = errors.New("swtch: nil reader")
 )

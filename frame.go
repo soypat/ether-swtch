@@ -5,6 +5,7 @@ import "github.com/soypat/net"
 type Reader interface {
 	Read(b []byte) (n uint16, err error)
 	// Discard discards packet data. Reader is terminated as well.
+	// If reader already terminated then it should have no effect.
 	Discard() error
 }
 
