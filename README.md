@@ -20,7 +20,7 @@ func main() {
     conn := swtch.NewTCPConn(sim, &swtch.HTTP{}, MAC)
 
     err := conn.Decode() // decode the next incoming connection
-    if err != io.EOF {
+    if !swtch.IsEOF(err) {
         panic(err)
     }
     // conn stores headers in TCP, Ethernet, IP and HTTP frames.

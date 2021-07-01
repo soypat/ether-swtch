@@ -2,6 +2,10 @@
 
 package swtch
 
+import (
+	"errors"
+)
+
 var (
 	ErrUnknownEthProtocol = errors.New("swtch: unable to follow ethernet protocol ctl")
 	ErrUnknownIPProtocol  = errors.New("swtch: unable to follow ip protocol ctl")
@@ -17,5 +21,8 @@ var (
 )
 
 func IsEOF(err error) bool {
-	return err.Error() == "EOF"
+	if err != nil {
+		return err.Error() == "EOF"
+	}
+	return false
 }

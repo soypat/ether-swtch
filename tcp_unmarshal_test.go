@@ -2,7 +2,6 @@ package swtch
 
 import (
 	"bytes"
-	"io"
 	"testing"
 
 	"github.com/soypat/net"
@@ -23,7 +22,7 @@ fa f0 bf 4c 00 00 02 04 05 b4 04 02 08 0a 08 a2
 	}
 	conn := NewTCPConn(rwconn, nil, mac)
 	err := conn.Decode()
-	if err != io.EOF {
+	if !IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
 	}
 	// Ethernet frame checks
@@ -98,7 +97,7 @@ fa f0 9d 00 00 00`)),
 	}
 	conn := NewTCPConn(rwconn, nil, mac)
 	err := conn.Decode()
-	if err != io.EOF {
+	if !IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
 	}
 	// Ethernet frame checks
@@ -196,7 +195,7 @@ fa f0 85 44 00 00 47 45 54 20 2f 20 48 54 54 50
 	}
 	conn := NewTCPConn(rwconn, nil, mac)
 	err := conn.Decode()
-	if err != io.EOF && err != nil {
+	if !IsEOF(err) && err != nil {
 		t.Errorf("expected io.EOF or nil when parsing http with no HTTP frame err, got %q", err)
 	}
 	// Ethernet frame checks
@@ -272,7 +271,7 @@ f8 64 83 e0 00 00`)),
 	}
 	conn := NewTCPConn(rwconn, nil, mac)
 	err := conn.Decode()
-	if err != io.EOF {
+	if !IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
 	}
 	// Ethernet frame checks
@@ -347,7 +346,7 @@ f8 64 83 e0 00 00`)),
 	}
 	conn := NewTCPConn(rwconn, nil, mac)
 	err := conn.Decode()
-	if err != io.EOF {
+	if !IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
 	}
 	// Ethernet frame checks

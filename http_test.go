@@ -1,7 +1,6 @@
 package swtch
 
 import (
-	"io"
 	"testing"
 
 	"github.com/soypat/net"
@@ -44,7 +43,7 @@ fa f0 85 44 00 00 47 45 54 20 2f 20 48 54 54 50
 	http := &HTTP{}
 	conn := NewTCPConn(rwconn, http, mac)
 	err := conn.Decode()
-	if err != io.EOF && err != nil {
+	if !IsEOF(err) && err != nil {
 		t.Errorf("expected io.EOF or nil when parsing http with no HTTP frame err, got %q", err)
 	}
 	// Ethernet, IP and TCP tests for this same packet are in tcp_test.go

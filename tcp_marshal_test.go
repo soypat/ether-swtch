@@ -1,7 +1,6 @@
 package swtch
 
 import (
-	"io"
 	"testing"
 
 	"github.com/soypat/net"
@@ -50,7 +49,7 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 		}
 		connTx := NewTCPConn(rwconn, nil, defaultMAC)
 		err := connTx.Decode()
-		if err != io.EOF && err != nil {
+		if !IsEOF(err) && err != nil {
 			t.Fatal(err) // cannot procede without unmarshalling contents
 		}
 		// Prevent modification of frame by skipping default tcpSetCtl routine.
@@ -67,7 +66,7 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 		}
 		connRx := NewTCPConn(readbackconn, nil, defaultMAC)
 		err = connRx.Decode()
-		if err != io.EOF && err != nil {
+		if !IsEOF(err) && err != nil {
 			t.Fatal(name, err) // cannot procede without unmarshalling contents
 		}
 		// swap ACK and SEQ back.

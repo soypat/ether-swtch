@@ -1,8 +1,6 @@
 package swtch
 
 import (
-	"io"
-
 	"github.com/soypat/net"
 
 	"github.com/soypat/ether-swtch/bytealg"
@@ -37,7 +35,7 @@ const (
 func (h *HTTP) Decode(r Reader) (n uint16, err error) {
 	n, err = r.Read(h.buff[:])
 	_log("http:decode", h.buff[:n])
-	if err != nil && err != io.EOF {
+	if err != nil && !IsEOF(err) {
 		return n, err
 	}
 	idx1 := bytealg.IdxRabinKarpBytes(h.buff[:], []byte{' '})
