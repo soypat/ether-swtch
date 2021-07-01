@@ -6,6 +6,7 @@ package swtch
 import (
 	"encoding/binary"
 
+	"github.com/soypat/ether-swtch/hex"
 	"github.com/soypat/net"
 )
 
@@ -121,6 +122,16 @@ const (
 // 802.1Q VLAN tags, an EtherType, and payload data.
 type Ethernet struct {
 	data [16]byte
+}
+
+func (f *Ethernet) String() string {
+	var vlanstr string
+	if f.IsVLAN() {
+		vlanstr = "(VLAN)"
+	}
+	return "dst: " + f.Destination().String() + ", " +
+		"src: " + f.Source().String() + ", " +
+		"etype: " + string(append(hex.Byte(byte(f.EtherType()>>8)), hex.Byte(byte(f.EtherType()))...)) + vlanstr
 }
 
 func (f *Ethernet) Destination() net.HardwareAddr {
