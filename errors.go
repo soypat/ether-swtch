@@ -1,15 +1,15 @@
-//+build !avr
-
 package swtch
 
 import (
 	"errors"
-	"io"
 )
 
 var (
+	ErrShortRead          = errors.New("swtch: remaining data too short for frame")
 	ErrUnknownEthProtocol = errors.New("swtch: unable to follow ethernet protocol ctl")
 	ErrUnknownIPProtocol  = errors.New("swtch: unable to follow ip protocol ctl")
+	// The protocol handler is available to user but was not found in instance.
+	ErrNoProtocol = errors.New("swtch: uninitialized or missing protocol")
 )
 
 var (
@@ -20,7 +20,3 @@ var (
 	ErrHTTPField = errors.New("swtch: parsing http field")
 	ErrNilReader = errors.New("swtch: nil reader")
 )
-
-func IsEOF(err error) bool {
-	return err == io.EOF
-}

@@ -30,11 +30,15 @@ func ipv4Ctl(c *Conn) Trigger {
 func ipv4Set(c *Conn) Trigger {
 	_log("ip4Set")
 	bytealg.Swap(c.IPv4.Source(), c.IPv4.Destination())
-	c.IPv4.Plen = 0
-	if c.TCP != nil {
+	switch c.IPv4.Protocol() {
+	case IPHEADER_PROTOCOL_TCP:
+		if c.TCP == nil {
+			return triggerError(ErrNoProtocol)
+		}
 		c.IPv4.Plen = c.TCP.FrameLength()
+		return nil
 	}
-	return nil
+	return triggerError(ErrUnknownIPProtocol)
 }
 
 func ipv4IO(c *Conn) Trigger {

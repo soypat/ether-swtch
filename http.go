@@ -38,6 +38,9 @@ func (h *HTTP) Decode(r Reader) (n uint16, err error) {
 	if err != nil && !IsEOF(err) {
 		return n, err
 	}
+	if n <= 6 {
+		return n, ErrShortRead
+	}
 	idx1 := bytealg.IdxRabinKarpBytes(h.buff[:], []byte{' '})
 	if idx1 < 3 {
 		return n, ErrHTTPField

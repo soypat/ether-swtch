@@ -127,7 +127,6 @@ func tcpIO(c *Conn) Trigger {
 
 // set ARP response
 func tcpSet(c *Conn) Trigger {
-	_log("tcpSet")
 	tcp := c.TCP
 	bytealg.Swap(tcp.Header[0:2], tcp.Header[2:4])
 	if tcp.PseudoHeaderInfo == nil {
@@ -136,6 +135,7 @@ func tcpSet(c *Conn) Trigger {
 	Set := tcp.Set()
 
 	if tcp.HasFlags(TCPHEADER_FLAG_SYN) {
+		_log("tcpSet [SYN,ACK]")
 		// adds some entropy to sequence number so for loops don't get false positive packets
 		Set.Seq(2560) // TODO: add entropy with when package is tested: Set.Seq(uint32(0x0062&tcp.PseudoHeaderInfo.ID()) + uint32(0x00af&tcp.Checksum()))
 		Set.UrgentPtr(0)
@@ -155,6 +155,7 @@ func tcpSet(c *Conn) Trigger {
 	Set.WindowSize(1024) // TODO assign meaningful value to window size (or not?)
 	// End TCP connection branch
 	if tcp.HasFlags(TCPHEADER_FLAG_FIN) {
+		_log("tcpSet FIN->[ACK]")
 		tcp.SetFlags(TCPHEADER_FLAG_ACK)
 		tcp.SubFrame = nil
 		Set.Ack(tcp.Ack() + 1)
@@ -167,7 +168,7 @@ func tcpSet(c *Conn) Trigger {
 		sframelen = uint32(tcp.SubFrame.FrameLength())
 	}
 	Set.Ack(tcp.Ack() + sframelen)
-
+	_log("tcpSet [ACK]")
 	return nil
 }
 
