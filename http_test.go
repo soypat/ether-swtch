@@ -48,7 +48,6 @@ func TestHTTPResponse(t *testing.T) {
 	http := &HTTP{}
 	rxconn := NewTCPConn(rwconn, http, mac, ip, 80)
 	err := rxconn.Decode()
-
 	if !IsEOF(err) && err != nil {
 		t.Errorf("expected EOF or nil, got %q", err)
 	}

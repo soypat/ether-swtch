@@ -61,14 +61,13 @@ func tcpIO(c *Conn) Trigger {
 		if n >= 12 {
 			// switch Ack and Seq (client ack is our seq and vice versa)
 			bytealg.Swap(c.TCP.Header[4:8], c.TCP.Header[8:12])
-			c.TCP.DataOffset = c.TCP.Offset()
 		}
 		_log("tcp:decode", c.TCP.Header[:n])
 		if err != nil {
 			return triggerError(err)
 		}
 		// Options are present branch
-		for i := 0; i < int(c.TCP.DataOffset-5); i++ {
+		for i := 0; i < int(c.TCP.Offset()-5); i++ {
 			oi := (i % (len(c.TCP.Options) / TCP_WORDLEN)) * 4 // Option index rewrites options if exceed option array length
 			n, err = c.packet.Read(c.TCP.Options[oi : oi+TCP_WORDLEN])
 			c.n += n
@@ -76,7 +75,7 @@ func tcpIO(c *Conn) Trigger {
 				return triggerError(err)
 			}
 		}
-		if c.TCP.SubFrame == nil {
+		if c.IPv4.TotalLength()-20-uint16(c.TCP.Offset())*TCP_WORDLEN <= 0 || c.TCP.SubFrame == nil {
 			return nil
 		}
 		// Ease stack usage by returning this function and starting TCP's payload decoding in new function.
@@ -96,7 +95,7 @@ func tcpIO(c *Conn) Trigger {
 	}
 	Set := c.TCP.Set()
 	// data offset
-	Set.HeaderLength(c.TCP.DataOffset)
+	Set.HeaderLength(c.TCP.Offset())
 
 	// Begin RFC791 Checksum calculation.
 	Set.Checksum(0)
@@ -104,7 +103,10 @@ func tcpIO(c *Conn) Trigger {
 		c.TCP.encodePseudo,
 		c.TCP.encodeHeader,
 		c.TCP.encodeOptions,
-		c.TCP.encodeFramer,
+	}
+	// Only write subframe if IP packet len is long enough.
+	if c.IPv4.TotalLength()-20-uint16(c.TCP.Offset())*TCP_WORDLEN > 0 {
+		encoders = append(encoders, c.TCP.encodeFramer)
 	}
 	checksum := rfc791.New()
 	for i := range encoders {
@@ -153,7 +155,7 @@ func tcpSet(c *Conn) Trigger {
 		Set.Flags(TCPHEADER_FLAG_ACK | TCPHEADER_FLAG_SYN)
 		// set Maximum segment size (option 0x02) length 4 (0x04) to 1280 (0x0500)
 		Set.Options([]byte{0x02, 0x04, 0x05, 0x00})
-		tcp.DataOffset = 5 /* nominal length */ + 1 /* options length*/
+		Set.Offset(5 + 1) // Nominal length + options.
 
 		Set.Ack(tcp.Ack() + 1)
 		Set.WindowSize(1400) // this is what EtherCard does?
@@ -162,7 +164,7 @@ func tcpSet(c *Conn) Trigger {
 
 	// Default TCP settings
 	{
-		tcp.DataOffset = 5
+		Set.Offset(5)
 		Set.Options(nil)
 		Set.WindowSize(1024) // TODO assign meaningful value to window size (or not?)
 	}
@@ -196,7 +198,6 @@ type TCP struct {
 	// TCP requires a 12 byte pseudo-header to calculate the checksum
 	PseudoHeaderInfo *IPv4
 
-	DataOffset uint8
 	// LastSeq    uint32
 	// limited implementation
 	Options [8]byte
@@ -228,11 +229,12 @@ func (tcp *TCP) encodePseudo(w Writer) (n uint16, err error) {
 }
 func (tcp *TCP) encodeOptions(w Writer) (n uint16, err error) {
 	const maxlen = uint8(len(tcp.Options)) / TCP_WORDLEN
-	if tcp.DataOffset > 5 {
-		if tcp.DataOffset-5 > maxlen {
-			tcp.DataOffset = 5 + maxlen
+	offset := tcp.Offset()
+	if offset > 5 {
+		if offset-5 > maxlen {
+			tcp.Set().Offset(5 + maxlen)
 		}
-		n, err = w.Write(tcp.Options[0 : (tcp.DataOffset-5)*TCP_WORDLEN])
+		n, err = w.Write(tcp.Options[0 : (tcp.Offset()-5)*TCP_WORDLEN])
 	}
 	return n, err
 }
@@ -256,7 +258,7 @@ func (tcp *TCP) FrameLength() uint16 {
 	if tcp.SubFrame != nil {
 		dlen = tcp.SubFrame.FrameLength()
 	}
-	return uint16(tcp.DataOffset)*TCP_WORDLEN + dlen
+	return uint16(tcp.Offset())*TCP_WORDLEN + dlen
 }
 
 // Has Flags returns true if ORflags are all set
@@ -329,6 +331,7 @@ func (set TCPSet) UrgentPtr(u uint16)  { binary.BigEndian.PutUint16(set.tcp.Head
 func (set TCPSet) Flags(flags uint16) {
 	binary.BigEndian.PutUint16(set.tcp.Header[12:14], (uint16(set.tcp.Header[12]&0xf0)<<8)|(TCPHEADER_FLAGS_MASK&flags))
 }
+func (set TCPSet) Offset(o uint8)            { set.tcp.Header[12] = o << 4 }
 func (set TCPSet) ClearFlags(ORflags uint16) { set.Flags(set.tcp.Flags() &^ ORflags) }
 
 func (set TCPSet) Options(opt []byte) {
@@ -337,6 +340,6 @@ func (set TCPSet) Options(opt []byte) {
 	if words > maxwords {
 		words = maxwords
 	}
-	set.tcp.DataOffset = 5 + words
+	set.Offset(5 + words)
 	copy(set.tcp.Options[:], opt)
 }

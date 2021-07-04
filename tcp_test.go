@@ -26,3 +26,18 @@ func TestTCPFlags(t *testing.T) {
 		t.Errorf("expected flag field to be set to %x, got %x", flagfield, tcp1.Flags())
 	}
 }
+
+func TestTCPOffset(t *testing.T) {
+	tcp := &TCP{}
+	set := tcp.Set()
+	for _, v := range []uint8{1, 0, 2, 3, 4, 5, 0, 6, 7, 0, 8, 9, 10, 15, 0, 14} {
+		set.Offset(v)
+		if tcp.Offset() != v {
+			t.Errorf("offset set failed for %d", v)
+		}
+		if tcp.Flags() != 0 {
+			t.Errorf("offset %d set flags: %s", v, tcp.StringFlags())
+		}
+	}
+
+}

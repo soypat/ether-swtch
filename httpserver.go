@@ -25,10 +25,14 @@ func HTTPListenAndServe(dg Datagrammer, mac net.HardwareAddr, IPAddr net.IP, tim
 	arpf := conn.ARPv4
 	tcpSet := tcpf.Set()
 	var deadline time.Time
+	var err error
 A:
 	for {
-		tcpSet.Flags(0) // clear flags
-		err := conn.Decode()
+		err = conn.Reset()
+		if err != nil {
+			errhandler(err)
+		}
+		err = conn.Decode()
 		if err != nil && !IsEOF(err) {
 			errhandler(err)
 			continue
@@ -48,7 +52,7 @@ A:
 			deadline = time.Now().Add(timeout)
 			// TCP Packet control
 			if !bytes.Equal(ipf.Destination(), IPAddr) || !bytes.Equal(eth.Destination(), mac) || // check destination address is ours
-				!tcpf.HasFlags(TCPHEADER_FLAG_SYN) || (err != nil && !IsEOF(err)) { // must have no non-EOF error. Must be SYN packet to start TCP handshake
+				!tcpf.HasFlags(TCPHEADER_FLAG_SYN) { // Must be SYN packet to start TCP handshake
 				continue
 			}
 
@@ -100,8 +104,6 @@ A:
 			{
 				tcpf.Set().Flags(TCPHEADER_FLAG_FIN | TCPHEADER_FLAG_PSH | TCPHEADER_FLAG_ACK)
 				httpf.Body = response
-				// calculate next sequence number expected based on response sent
-				// nextseq = tcpf.Seq() + clientHTTPLen + 1
 				err = conn.SendResponse()
 				if err != nil {
 					errhandler(err)

@@ -2,6 +2,7 @@ package swtch
 
 import "github.com/soypat/net"
 
+// Reader reads from a packet that was received through stream.
 type Reader interface {
 	Read(b []byte) (n uint16, err error)
 	// Discard discards packet data. Reader is terminated as well.
@@ -10,20 +11,23 @@ type Reader interface {
 }
 
 type Writer interface {
+	// Writes data to buffer. Flush may need to be called to send packet over stream.
 	Write(b []byte) (n uint16, err error)
 }
 
 type PacketReader interface {
+	// Returns a Reader that reads from the next packet.
 	NextPacket() (Reader, error)
 }
 
 type PacketWriter interface {
 	Writer
-	// Flush writer buffer to the underlying stream.
+	// Flush writes buffer to the underlying stream.
 	Flush() error
 }
 
-// Datagrammer can marshal an unmarshal packets sent over ethernet.
+// Datagrammer can marshal an unmarshal packets sent over ethernet. Typically is an
+// IC with read/write capabilities such as the ENC28J60.
 type Datagrammer interface {
 	PacketWriter
 	PacketReader

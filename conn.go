@@ -86,9 +86,35 @@ func (c *Conn) runIO() error {
 				return err
 			}
 		}
+		_log("runIO:FLUSH\n")
 		c.err = c.conn.Flush()
 	}
 	return c.err
+}
+
+func (c *Conn) Reset() (err error) {
+	if c.TCP != nil {
+		set := c.TCP.Set()
+		set.Ack(0)
+		set.Seq(0)
+		set.Source(0)
+		set.Flags(0)
+		if c.TCP.SubFrame != nil {
+			err = c.TCP.SubFrame.Reset()
+		}
+	}
+	if c.IPv4 != nil {
+		set := c.IPv4.Set()
+		set.TotalLength(0)
+		set.Protocol(0)
+		set.Version(0)
+		set.Destination(net.IP(Broadcast))
+	}
+	if c.Ethernet != nil {
+		set := c.Ethernet.Set()
+		set.Destination(Broadcast)
+	}
+	return err
 }
 
 func triggerError(err error) Trigger {

@@ -10,6 +10,20 @@ import (
 	"github.com/soypat/net"
 )
 
+func BenchmarkHTTPServer(b *testing.B) {
+	timeout := time.Hour * 500 // long timeout given testing environment (for debugging)
+	var (
+		mac         = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+		httpContent = defaultOKHeader + "Hello World!"
+	)
+	dg := newTestDatagrammer(2)
+	go HTTPListenAndServe(dg, mac, net.IP{192, 168, 1, 5}, timeout, func(URL []byte) (response []byte) {
+		return []byte(httpContent)
+	}, func(e error) { b.Error(e) })
+	for i := 0; i < b.N; i++ {
+		testInOutHTTPServer(b, dg, httpContent)
+	}
+}
 func TestHTTPServer(t *testing.T) {
 	t.Parallel()
 	const N = 100
@@ -27,7 +41,7 @@ func TestHTTPServer(t *testing.T) {
 	}
 }
 
-func testInOutHTTPServer(t *testing.T, dg *TestDatagrammer, httpExpectedContent string) {
+func testInOutHTTPServer(t testing.TB, dg *TestDatagrammer, httpExpectedContent string) {
 	var (
 		eth, ethExpect   *Ethernet
 		ip, ipExpect     *IPv4
