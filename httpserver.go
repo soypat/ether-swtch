@@ -2,11 +2,12 @@ package swtch
 
 import (
 	"bytes"
+	"time"
 
 	"github.com/soypat/net"
 )
 
-func HTTPListenAndServe(dg Datagrammer, mac net.HardwareAddr, IPAddr net.IP, handler func(URL []byte) (response []byte), errhandler func(error)) {
+func HTTPListenAndServe(dg Datagrammer, mac net.HardwareAddr, IPAddr net.IP, timeout time.Duration, handler func(URL []byte) (response []byte), errhandler func(error)) {
 	var count uint
 	httpf := new(HTTP)
 	// HTTP/TCP variables
@@ -23,6 +24,7 @@ func HTTPListenAndServe(dg Datagrammer, mac net.HardwareAddr, IPAddr net.IP, han
 	tcpf := conn.TCP
 	arpf := conn.ARPv4
 	tcpSet := tcpf.Set()
+	var deadline time.Time
 A:
 	for {
 		tcpSet.Flags(0) // clear flags
@@ -43,6 +45,7 @@ A:
 			count++
 
 		} else if eth.EtherType() == EtherTypeIPv4 {
+			deadline = time.Now().Add(timeout)
 			// TCP Packet control
 			if !bytes.Equal(ipf.Destination(), IPAddr) || !bytes.Equal(eth.Destination(), mac) || // check destination address is ours
 				!tcpf.HasFlags(TCPHEADER_FLAG_SYN) || (err != nil && !IsEOF(err)) { // must have no non-EOF error. Must be SYN packet to start TCP handshake
@@ -57,20 +60,19 @@ A:
 				errhandler(err)
 				continue A
 			}
-			SEQ, ACK = conn.TCP.Seq(), conn.TCP.Ack()-1
-			loopsDone := 0
+			SEQ, ACK = tcpf.Seq(), tcpf.Ack()-1
+
 			_log("\n=======loop http decode")
 			// while not the packet we are looking for keep going.
-			for tcpf.Seq() != SEQ+1 || len(httpf.URL) == 0 || tcpf.HasFlags(TCPHEADER_FLAG_SYN) {
+			for tcpf.Seq() != SEQ+1 || len(httpf.URL) == 0 || httpf.Method == httpUNDEFINED || tcpf.HasFlags(TCPHEADER_FLAG_SYN) {
+				if time.Now().After(deadline) {
+					// deadline exceeded
+					continue A
+				}
 				// Get incoming ACK and skip it (len=0) and get HTTP request
 				err = conn.Decode()
 				if err != nil && !IsEOF(err) {
 					errhandler(err)
-				}
-				loopsDone++
-				if loopsDone > 4 {
-					_log("=======loop > 4")
-					continue A
 				}
 			}
 			_log("HTTP:" + httpf.String())
@@ -81,9 +83,10 @@ A:
 				serverHTTPLen = uint32(len(response))
 				clientHTTPLen = uint32(ipf.TotalLength()) - 20 - uint32(tcpf.Offset())*4
 				if clientHTTPLen <= 0 {
-					panic("zero or negative calculated httplength")
+					_log("got a zero length HTTP packet")
+					continue A
 				}
-
+				httpf.Body = nil
 				tcpSet.Ack(ACK + clientHTTPLen + 1)
 				tcpSet.Seq(SEQ + 1)
 				tcpSet.Flags(TCPHEADER_FLAG_ACK)
@@ -109,8 +112,8 @@ A:
 			tcpSet.ClearFlags(TCPHEADER_FLAG_FIN)
 			conn.Decode()
 			for (tcpf.Seq() != SEQ+serverHTTPLen+1 && !tcpf.HasFlags(TCPHEADER_FLAG_FIN)) || tcpf.HasFlags(TCPHEADER_FLAG_SYN) {
-				loopsDone++
-				if loopsDone > 4 {
+				if time.Now().After(deadline) {
+					// deadline exceeded
 					continue A
 				}
 				err = conn.Decode()

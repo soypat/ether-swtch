@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"testing"
+	"time"
 
 	"github.com/soypat/ether-swtch/hex"
 	"github.com/soypat/net"
@@ -11,6 +12,7 @@ import (
 
 func TestHTTPServer(t *testing.T) {
 	t.Parallel()
+	timeout := time.Second
 	var (
 		mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
 
@@ -27,7 +29,7 @@ func TestHTTPServer(t *testing.T) {
 		httpContent   = defaultOKHeader + "Hello World!"
 	)
 	dg := newTestDatagrammer(2)
-	go HTTPListenAndServe(dg, mac, net.IP{192, 168, 1, 5}, func(URL []byte) (response []byte) {
+	go HTTPListenAndServe(dg, mac, net.IP{192, 168, 1, 5}, timeout, func(URL []byte) (response []byte) {
 		return []byte(httpContent)
 	}, func(e error) { t.Error(e) })
 
