@@ -12,10 +12,23 @@ import (
 
 func TestHTTPServer(t *testing.T) {
 	t.Parallel()
-	timeout := time.Second
+	const N = 100
+	timeout := time.Hour * 500 // long timeout given testing environment (for debugging)
 	var (
-		mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+		mac         = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+		httpContent = defaultOKHeader + "Hello World!"
+	)
+	dg := newTestDatagrammer(2)
+	go HTTPListenAndServe(dg, mac, net.IP{192, 168, 1, 5}, timeout, func(URL []byte) (response []byte) {
+		return []byte(httpContent)
+	}, func(e error) { t.Error(e) })
+	for i := 0; i < N; i++ {
+		testInOutHTTPServer(t, dg, httpContent)
+	}
+}
 
+func testInOutHTTPServer(t *testing.T, dg *TestDatagrammer, httpExpectedContent string) {
+	var (
 		eth, ethExpect   *Ethernet
 		ip, ipExpect     *IPv4
 		tcp, tcpExpect   *TCP
@@ -26,13 +39,7 @@ func TestHTTPServer(t *testing.T) {
 		clientHTTPLen uint32
 		// serverHTTPLen accumulates lengths of server http data
 		serverHTTPLen uint32
-		httpContent   = defaultOKHeader + "Hello World!"
 	)
-	dg := newTestDatagrammer(2)
-	go HTTPListenAndServe(dg, mac, net.IP{192, 168, 1, 5}, timeout, func(URL []byte) (response []byte) {
-		return []byte(httpContent)
-	}, func(e error) { t.Error(e) })
-
 	// Send [SYN] TCP Packet
 	{
 		p0in := &packet{dataOnWire: hex.Decode([]byte(`de ad be ef fe ff 28 d2 44 9a 2f f3 08 00 45 00
@@ -112,7 +119,7 @@ func TestHTTPServer(t *testing.T) {
 
 		// send packets
 		_, _, tcpGET, httpGET := parseHTTPPacket(pGET)
-		clientHTTPLen += uint32(len(httpGET.Body)) // Client httpLen
+		clientHTTPLen = uint32(len(httpGET.Body)) // Client httpLen
 		dg.in(pAck, pGET)
 		_, _ = tcpGET, httpGET
 		// first packet out now should be [ACK]
@@ -159,9 +166,9 @@ func TestHTTPServer(t *testing.T) {
 		expectData := append(hex.Decode([]byte(`28 d2 44 9a 2f f3 de ad be ef fe ff 08 00 45 00
 	03 1d 2c dc 40 00 40 06 87 39 c0 a8 01 05 c0 a8
 	01 70 00 50 e6 28 00 00 0a 01 3e ab 66 5c 50 19
-	04 00 2c 98 00 00`)), httpContent...)
+	04 00 2c 98 00 00`)), httpExpectedContent...)
 		// replace IP TotalLength field to extend to end of appended http content.
-		binary.BigEndian.PutUint16(expectData[16:18], uint16(20+20+len(httpContent)))
+		binary.BigEndian.PutUint16(expectData[16:18], uint16(20+20+len(httpExpectedContent)))
 		ethExpect, ipExpect, tcpExpect, httpExpect = parseHTTPPacket(&packet{dataOnWire: expectData})
 		// checksum differ since different Total Length field and TCP data
 		ipExpect.Set().Checksum(ip.Checksum())
@@ -190,7 +197,7 @@ func TestHTTPServer(t *testing.T) {
 		if !bytes.Equal(httpExpect.Body, http.Body) {
 			t.Errorf("%s: different http payloads expect/got:\n%q\n%q", pname, httpExpect.Body, http.Body)
 		}
-		serverHTTPLen += uint32(len(http.Body))
+		serverHTTPLen = uint32(len(http.Body))
 	}
 
 	// Client responds with [ACK] and [FIN,ACK] segments. Expect server reply of [ACK] ending TCP transmission
@@ -203,6 +210,9 @@ func TestHTTPServer(t *testing.T) {
 	00 28 2c de 40 00 40 06 8a 2c c0 a8 01 70 c0 a8
 	01 05 e6 28 00 50 3e ab 66 5c 00 00 0c f7 50 11
 	f8 64 83 e0 00 00`))}
+		// Setting SEQ number as it is important to match handshake data for success of control flow
+		binary.BigEndian.PutUint32(pAck.dataOnWire[42:46], SEQ+serverHTTPLen+1)
+		binary.BigEndian.PutUint32(pFin.dataOnWire[42:46], SEQ+serverHTTPLen+1)
 		dg.in(pAck, pFin)
 		// ethAck, ipAck, tcpAck, _ := parseHTTPPacket(pAck)
 		p := dg.out()
@@ -276,7 +286,7 @@ func (dg *TestDatagrammer) Flush() error {
 	return nil
 }
 
-// in sends packets over Datagrammer reader
+// in sends packets over Datagrammer reader over RX
 func (dg *TestDatagrammer) in(p ...*packet) {
 	for i := range p {
 		if p[i] == nil {

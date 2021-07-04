@@ -64,7 +64,7 @@ A:
 
 			_log("\n=======loop http decode")
 			// while not the packet we are looking for keep going.
-			for tcpf.Seq() != SEQ+1 || len(httpf.URL) == 0 || httpf.Method == httpUNDEFINED || tcpf.HasFlags(TCPHEADER_FLAG_SYN) {
+			for tcpf.Seq() != SEQ+1 || len(httpf.URL) == 0 || httpf.Method == httpUNDEFINED || tcpf.HasFlags(TCPHEADER_FLAG_SYN) || tcpf.Flags() == TCPHEADER_FLAG_ACK {
 				if time.Now().After(deadline) {
 					// deadline exceeded
 					continue A
@@ -91,7 +91,7 @@ A:
 				tcpSet.Seq(SEQ + 1)
 				tcpSet.Flags(TCPHEADER_FLAG_ACK)
 				err = conn.SendResponse()
-				if err != nil && !IsEOF(err) {
+				if err != nil {
 					errhandler(err)
 				}
 			}
@@ -103,15 +103,14 @@ A:
 				// calculate next sequence number expected based on response sent
 				// nextseq = tcpf.Seq() + clientHTTPLen + 1
 				err = conn.SendResponse()
-				if err != nil && !IsEOF(err) {
+				if err != nil {
 					errhandler(err)
 				}
 			}
 
-			// clear current flags to prevent false positive
+			// clear current flags to prevent false positive. We seek to ACK the FIN|ACK segment.
 			tcpSet.ClearFlags(TCPHEADER_FLAG_FIN)
-			conn.Decode()
-			for (tcpf.Seq() != SEQ+serverHTTPLen+1 && !tcpf.HasFlags(TCPHEADER_FLAG_FIN)) || tcpf.HasFlags(TCPHEADER_FLAG_SYN) {
+			for tcpf.Seq() != SEQ+serverHTTPLen+1 || tcpf.Flags() != TCPHEADER_FLAG_FIN|TCPHEADER_FLAG_ACK {
 				if time.Now().After(deadline) {
 					// deadline exceeded
 					continue A
@@ -126,9 +125,10 @@ A:
 			tcpSet.Ack(ACK + clientHTTPLen + 2)
 			tcpSet.Seq(SEQ + serverHTTPLen + 2)
 			err = conn.SendResponse()
-			if err != nil && !IsEOF(err) {
+			if err != nil {
 				errhandler(err)
 			}
+			_log("\nEnd TCP handshake with :" + tcpf.String())
 			count++
 		}
 	}

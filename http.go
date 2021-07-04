@@ -34,7 +34,7 @@ const (
 
 func (h *HTTP) Decode(r Reader) (n uint16, err error) {
 	n, err = r.Read(h.buff[:])
-	_log("http:decode", h.buff[:n])
+	_log("http decode: " + string(h.buff[:n]))
 	if err != nil && !IsEOF(err) {
 		return n, err
 	}
