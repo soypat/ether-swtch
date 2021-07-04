@@ -122,10 +122,16 @@ func tcpIO(c *Conn) Trigger {
 			return triggerError(err)
 		}
 	}
+	if c.TCP.SubFrame != nil {
+		err = c.TCP.SubFrame.Reset()
+		if err != nil {
+			return triggerError(err)
+		}
+	}
 	return nil
 }
 
-// set ARP response
+// set default TCP response
 func tcpSet(c *Conn) Trigger {
 	tcp := c.TCP
 	bytealg.Swap(tcp.Header[0:2], tcp.Header[2:4])
@@ -134,41 +140,33 @@ func tcpSet(c *Conn) Trigger {
 	}
 	Set := tcp.Set()
 
+	// First TCP packet received clause
 	if tcp.HasFlags(TCPHEADER_FLAG_SYN) {
+		const startSeq = 2560
 		_log("tcpSet [SYN,ACK]")
 		// adds some entropy to sequence number so for loops don't get false positive packets
-		Set.Seq(2560) // TODO: add entropy with when package is tested: Set.Seq(uint32(0x0062&tcp.PseudoHeaderInfo.ID()) + uint32(0x00af&tcp.Checksum()))
+		Set.Seq(startSeq) // TODO: add entropy with when package is tested: Set.Seq(uint32(0x0062&tcp.PseudoHeaderInfo.ID()) + uint32(0x00af&tcp.Checksum()))
+		tcp.LastSeq = startSeq
 		Set.UrgentPtr(0)
-		tcp.SetFlags(TCPHEADER_FLAG_ACK | TCPHEADER_FLAG_SYN)
+		Set.Flags(TCPHEADER_FLAG_ACK | TCPHEADER_FLAG_SYN)
 		// set Maximum segment size (option 0x02) length 4 (0x04) to 1280 (0x0500)
 		Set.Options([]byte{0x02, 0x04, 0x05, 0x00})
 		tcp.DataOffset = 5 /* nominal length */ + 1 /* options length*/
-		tcp.LastSeq = tcp.Seq()
+
 		Set.Ack(tcp.Ack() + 1)
 		Set.WindowSize(1400) // this is what EtherCard does?
 		return nil
 	}
-	tcp.DataOffset = 5
-	tcp.LastSeq = tcp.Seq()
-	Set.Options(nil)
 
-	Set.WindowSize(1024) // TODO assign meaningful value to window size (or not?)
-	// End TCP connection branch
-	if tcp.HasFlags(TCPHEADER_FLAG_FIN) {
-		_log("tcpSet FIN->[ACK]")
-		tcp.SetFlags(TCPHEADER_FLAG_ACK)
-		tcp.SubFrame = nil
-		Set.Ack(tcp.Ack() + 1)
+	// Default TCP settings
+	{
+		tcp.DataOffset = 5
+		tcp.LastSeq = tcp.Seq()
+		Set.Options(nil)
+		Set.WindowSize(1024) // TODO assign meaningful value to window size (or not?)
+	}
 
-		return nil
-	}
-	tcp.ClearFlags(TCPHEADER_FLAG_FIN | TCPHEADER_FLAG_PSH)
-	var sframelen uint32
-	if tcp.SubFrame != nil {
-		sframelen = uint32(tcp.SubFrame.FrameLength())
-	}
-	Set.Ack(tcp.Ack() + sframelen)
-	_log("tcpSet [ACK]")
+	_log("tcpSet <NOP>")
 	return nil
 }
 
@@ -260,16 +258,8 @@ func (tcp *TCP) FrameLength() uint16 {
 	return uint16(tcp.DataOffset)*TCP_WORDLEN + dlen
 }
 
-func (tcp *TCP) SetFlags(ORflags uint16) {
-	if ORflags & ^TCPHEADER_FLAGS_MASK != 0 {
-		panic("bad flag")
-	}
-	binary.BigEndian.PutUint16(tcp.Header[12:14], TCPHEADER_FLAGS_MASK&ORflags)
-}
-
 // Has Flags returns true if ORflags are all set
 func (tcp *TCP) HasFlags(ORflags uint16) bool { return (tcp.Flags() & ORflags) == ORflags }
-func (tcp *TCP) ClearFlags(ORflags uint16)    { tcp.SetFlags(tcp.Flags() &^ ORflags) }
 
 // String Flag const
 const flaglen = 3
@@ -336,8 +326,10 @@ func (set TCPSet) WindowSize(w uint16) { binary.BigEndian.PutUint16(set.tcp.Head
 func (set TCPSet) Checksum(c uint16)   { binary.BigEndian.PutUint16(set.tcp.Header[16:18], c) }
 func (set TCPSet) UrgentPtr(u uint16)  { binary.BigEndian.PutUint16(set.tcp.Header[18:20], u) }
 func (set TCPSet) Flags(flags uint16) {
-	binary.BigEndian.PutUint16(set.tcp.Header[12:14], TCPHEADER_FLAGS_MASK&flags)
+	binary.BigEndian.PutUint16(set.tcp.Header[12:14], (uint16(set.tcp.Header[12]&0xf0)<<8)|(TCPHEADER_FLAGS_MASK&flags))
 }
+func (set TCPSet) ClearFlags(ORflags uint16) { set.Flags(set.tcp.Flags() &^ ORflags) }
+
 func (set TCPSet) Options(opt []byte) {
 	const maxwords = uint8(len(set.tcp.Options)) / TCP_WORDLEN
 	words := uint8(len(opt) / TCP_WORDLEN)

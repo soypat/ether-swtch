@@ -29,12 +29,11 @@ func NewTCPConn(rw Datagrammer, payload Frame, MAC net.HardwareAddr) *Conn {
 		Ethernet: new(Ethernet),
 		IPv4:     new(IPv4),
 		ARPv4:    new(ARPv4),
-		TCP:      new(TCP),
+		TCP:      &TCP{SubFrame: payload},
 		start:    tcpSetCtl, // TCPConn commanded by ethernet frames as data-link layer
 	}
 	conn.conn = rw
 	conn.TCP.PseudoHeaderInfo = conn.IPv4
-	conn.TCP.SubFrame = payload
 	return conn
 }
 

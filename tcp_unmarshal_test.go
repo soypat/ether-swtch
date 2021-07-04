@@ -429,4 +429,5 @@ func (r *readbacktest) NextPacket() (Reader, error) { return &r.packet, nil }
 
 func (r *readbacktest) Flush() error { return nil }
 
+// sent Returns data written to the buffer
 func (r *readbacktest) sent() []byte { return r.written }

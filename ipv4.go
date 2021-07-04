@@ -30,12 +30,13 @@ func ipv4Ctl(c *Conn) Trigger {
 func ipv4Set(c *Conn) Trigger {
 	_log("ip4Set")
 	bytealg.Swap(c.IPv4.Source(), c.IPv4.Destination())
+	Set := c.IPv4.Set()
 	switch c.IPv4.Protocol() {
 	case IPHEADER_PROTOCOL_TCP:
 		if c.TCP == nil {
 			return triggerError(ErrNoProtocol)
 		}
-		c.IPv4.Plen = c.TCP.FrameLength()
+		Set.TotalLength(c.TCP.FrameLength() + 20) // 20 is the IPv4 header length.
 		return nil
 	}
 	return triggerError(ErrUnknownIPProtocol)
@@ -46,24 +47,24 @@ func ipv4IO(c *Conn) Trigger {
 	var err error
 	if c.read {
 		// should read all the data
-		n, err = c.packet.Read(c.IPv4.Data[:])
+		n, err = c.packet.Read(c.IPv4.data[:])
 		c.n += n
-		_log("ip4:decode", c.IPv4.Data[:n])
+		_log("ip4:decode", c.IPv4.data[:n])
 		if err != nil {
 			return triggerError(err)
 		}
 		return nil
 	}
-	_log("ip4:send", c.IPv4.Data[:n])
+	_log("ip4:send", c.IPv4.data[:n])
 	// Set TotalLength field. IPv4's payload must have been set beforehand.
-	binary.BigEndian.PutUint16(c.IPv4.Data[2:4], c.IPv4.FrameLength())
+	binary.BigEndian.PutUint16(c.IPv4.data[2:4], c.IPv4.FrameLength())
 	// set checksum field to zero to calculate new RFC791 checksum.
-	c.IPv4.Data[10] = 0
-	c.IPv4.Data[11] = 0
+	c.IPv4.data[10] = 0
+	c.IPv4.data[11] = 0
 	checksum := rfc791.New()
-	checksum.Write(c.IPv4.Data[:])
-	binary.BigEndian.PutUint16(c.IPv4.Data[10:12], checksum.Sum())
-	n, err = c.conn.Write(c.IPv4.Data[:])
+	checksum.Write(c.IPv4.data[:])
+	binary.BigEndian.PutUint16(c.IPv4.data[10:12], checksum.Sum())
+	n, err = c.conn.Write(c.IPv4.data[:])
 	c.n += n
 	if err != nil {
 		return triggerError(err)
@@ -90,30 +91,29 @@ const (
 
 // Set Plen on every response.
 type IPv4 struct {
-	Data [20]byte
-	// Payload length in number of octets. Needed to calculate Total Length field.
-	Plen uint16
+	data [20]byte
 }
 
-func (ip *IPv4) Version() uint8      { return ip.Data[0] }
-func (ip *IPv4) IHL() uint8          { return ip.Data[1] }
-func (ip *IPv4) TotalLength() uint16 { return binary.BigEndian.Uint16(ip.Data[2:4]) }
-func (ip *IPv4) ID() uint16          { return binary.BigEndian.Uint16(ip.Data[4:6]) }
-func (ip *IPv4) Flags() IPFlags      { return IPFlags(binary.BigEndian.Uint16(ip.Data[6:8])) }
-func (ip *IPv4) TTL() uint8          { return ip.Data[8] }
-func (ip *IPv4) Protocol() uint8     { return ip.Data[9] }
-func (ip *IPv4) Checksum() uint16    { return binary.BigEndian.Uint16(ip.Data[10:12]) }
+func (ip *IPv4) Version() uint8 { return ip.data[0] }
+func (ip *IPv4) IHL() uint8     { return ip.data[1] }
+
+// TotalLength IPv4 field indicating the combined length of the IP header and payload length in octets.
+func (ip *IPv4) TotalLength() uint16 { return binary.BigEndian.Uint16(ip.data[2:4]) }
+func (ip *IPv4) ID() uint16          { return binary.BigEndian.Uint16(ip.data[4:6]) }
+func (ip *IPv4) Flags() IPFlags      { return IPFlags(binary.BigEndian.Uint16(ip.data[6:8])) }
+func (ip *IPv4) TTL() uint8          { return ip.data[8] }
+func (ip *IPv4) Protocol() uint8     { return ip.data[9] }
+func (ip *IPv4) Checksum() uint16    { return binary.BigEndian.Uint16(ip.data[10:12]) }
 
 // Source IPv4 Address
-func (ip *IPv4) Source() net.IP { return ip.Data[12:16] }
+func (ip *IPv4) Source() net.IP { return ip.data[12:16] }
 
 // Destination IPv4 Address
-func (ip *IPv4) Destination() net.IP { return ip.Data[16:20] }
+func (ip *IPv4) Destination() net.IP { return ip.data[16:20] }
 
+// Framelength is an alias for IP's Total length field.
 func (ip *IPv4) FrameLength() uint16 {
-	const addrlen uint16 = 4 // IPv4 size.
-	headlen := 12 + 2*addrlen
-	return headlen + ip.Plen
+	return ip.TotalLength()
 }
 
 func (ip *IPv4) String() string {
@@ -125,3 +125,25 @@ type IPFlags uint16
 func (f IPFlags) DontFragment() bool     { return f&IPHEADER_FLAG_DONTFRAGMENT != 0 }
 func (f IPFlags) MoreFragments() bool    { return f&IPHEADER_FLAG_MOREFRAGMENTS != 0 }
 func (f IPFlags) FragmentOffset() uint16 { return uint16(f) & 0x1fff }
+
+func (ip *IPv4) Set() IPv4Set { return IPv4Set{ip} }
+
+// IPv4Set is a helper struct to set fields of IPv4 data buffer.
+type IPv4Set struct {
+	ip *IPv4
+}
+
+func (s *IPv4Set) Version(v uint8)         { s.ip.data[0] = v }
+func (s *IPv4Set) IHL(ihl uint8)           { s.ip.data[1] = ihl }
+func (s *IPv4Set) TotalLength(plen uint16) { binary.BigEndian.PutUint16(s.ip.data[2:4], plen) }
+func (s *IPv4Set) ID(id uint16)            { binary.BigEndian.PutUint16(s.ip.data[4:6], id) }
+func (s *IPv4Set) Flags(ORFlags uint16)    { binary.BigEndian.PutUint16(s.ip.data[6:8], ORFlags) }
+func (s *IPv4Set) TTL(ttl uint8)           { s.ip.data[8] = ttl }
+func (s *IPv4Set) Protocol(p uint8)        { s.ip.data[9] = p }
+func (s *IPv4Set) Checksum(c uint16)       { binary.BigEndian.PutUint16(s.ip.data[10:12], c) }
+
+// Source sets the source IPv4 Address
+func (s *IPv4Set) Source(ip net.IP) { copy(s.ip.data[12:16], ip) }
+
+// Destination sets the destination IPv4 Address
+func (s *IPv4Set) Destination(ip net.IP) { copy(s.ip.data[16:20], ip) }

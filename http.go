@@ -76,6 +76,11 @@ func (h *HTTP) FrameLength() uint16 {
 	return uint16(len(h.Body))
 }
 
+func (h *HTTP) Reset() error {
+	h.Body = nil
+	return nil
+}
+
 func (h *HTTP) SetResponse(MAC net.HardwareAddr) error {
 	return nil
 }

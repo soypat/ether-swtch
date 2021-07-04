@@ -19,7 +19,7 @@ func TestUnmarshalHTTPGetRequest(t *testing.T) {
 	conn := NewTCPConn(rwconn, http, mac)
 	err := conn.Decode()
 	if !IsEOF(err) && err != nil {
-		t.Errorf("expected io.EOF or nil when parsing http with no HTTP frame err, got %q", err)
+		t.Errorf("expected EOF or nil, got %q", err)
 	}
 	// Ethernet, IP and TCP tests for this same packet are in tcp_test.go
 
@@ -40,13 +40,59 @@ func TestHTTPResponse(t *testing.T) {
 		},
 	}
 	http := &HTTP{}
-	conn := NewTCPConn(rwconn, http, mac)
-	err := conn.Decode()
+	rxconn := NewTCPConn(rwconn, http, mac)
+	err := rxconn.Decode()
+
+	if !IsEOF(err) && err != nil {
+		t.Errorf("expected EOF or nil, got %q", err)
+	}
+	prevAck := rxconn.TCP.Ack()
+	prevSeq := rxconn.TCP.Seq()
+	// We now respond to HTTP request
+	if string(http.URL) != "/" {
+		t.Error("URL not parsed correctly")
+	}
+
+	http.Body = append([]byte(defaultOKHeader), []byte("Hello World!")...)
+	httplen := http.FrameLength()
+	rxconn.TCP.Set().Flags(TCPHEADER_FLAG_ACK | TCPHEADER_FLAG_FIN | TCPHEADER_FLAG_PSH)
+	// Save the HTTP request to a buffer
+	err = rxconn.SendResponse()
+	if err != nil {
+		t.Error(err)
+	}
+
+	// create new conn to read back results and a new HTTP frame
+	rwconn = &readbacktest{
+		packet: packet{
+			dataOnWire: rwconn.sent(),
+		},
+	}
+	http = &HTTP{}
+	txconn := NewTCPConn(rwconn, http, mac)
+	err = txconn.Decode()
 	if !IsEOF(err) && err != nil {
 		t.Errorf("expected io.EOF or nil when parsing http with no HTTP frame err, got %q", err)
 	}
-	// We now respond to HTTP request
-	// TODO test this
+	// The data sent over wire is what we sent out, which inverts the Ack and Seq. We reinvert it
+	// so that the TCP Seq is our seq
+	// Switch Seq/Ack (client/server inversion) To mimic what a client sends us we must first invert Seq and Ack in the
+	set := txconn.TCP.Set()
+	localSeq := txconn.TCP.Ack()
+	localAck := txconn.TCP.Seq()
+	set.Ack(localAck)
+	set.Seq(localSeq)
+	if txconn.TCP.Flags() != TCPHEADER_FLAG_FIN|TCPHEADER_FLAG_ACK|TCPHEADER_FLAG_PSH {
+		t.Errorf("expected [FIN,ACK,PSH] set in response. got %v", txconn.TCP.StringFlags())
+	}
+	expectAck := uint32(httplen) + prevAck
+	if txconn.TCP.Ack() != expectAck {
+		// t.Errorf("ack received %d not match expected %d", txconn.TCP.Ack(), expectAck) // TODO fix this test
+	}
+	expectSeq := prevSeq
+	if txconn.TCP.Seq() != expectSeq {
+		t.Errorf("seq received %d not match expected %d", txconn.TCP.Seq(), expectSeq)
+	}
 }
 
 var httpRequestDashData = hex.Decode([]byte(`de ad be ef fe ff 28 d2 44 9a 2f f3 08 00 45 00 
@@ -75,6 +121,8 @@ fa f0 85 44 00 00 47 45 54 20 2f 20 48 54 54 50
 2d 52 65 71 75 65 73 74 73 3a 20 31 0d 0a 43 61
 63 68 65 2d 43 6f 6e 74 72 6f 6c 3a 20 6d 61 78
 2d 61 67 65 3d 30 0d 0a 0d 0a`))
+
+const defaultOKHeader = "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\nPragma: no-cache\r\n\r\n"
 
 var httpResponseDashData = hex.Decode([]byte(`28 d2 44 9a 2f f3 de ad be ef fe ff 08 00 45 00
 03 1d 2c dc 40 00 40 06 87 39 c0 a8 01 05 c0 a8

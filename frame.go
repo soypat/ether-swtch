@@ -34,4 +34,5 @@ type Frame interface {
 	Encode(w Writer) (uint16, error)
 	SetResponse(net.HardwareAddr) error
 	FrameLength() uint16
+	Reset() error
 }
