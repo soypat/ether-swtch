@@ -6,15 +6,16 @@ import (
 	"github.com/soypat/net"
 )
 
-func HTTPListenAndServe(dg Datagrammer, mac net.HardwareAddr, IPAddr net.IP, handler func(URL []byte) (response []byte), errhandler func(error)) (err error) {
+func HTTPListenAndServe(dg Datagrammer, mac net.HardwareAddr, IPAddr net.IP, handler func(URL []byte) (response []byte), errhandler func(error)) {
 	var count uint
 	httpf := new(HTTP)
 	// HTTP/TCP variables
 	var (
-		httpLen, nextseq uint32
-		response         []byte
+		// HTTPLen variables accumulate total data sent by the client and server
+		clientHTTPLen, serverHTTPLen, ACK, SEQ uint32
+		response                               []byte
 	)
-	conn := NewTCPConn(dg, httpf, mac)
+	conn := NewTCPConn(dg, httpf, mac, IPAddr, 80)
 
 	// declare shorthand frames
 	eth := conn.Ethernet
@@ -35,7 +36,7 @@ A:
 			// ARP Packet control.
 			_log("=======etherType ARPv4")
 			err = conn.SendResponse()
-			if err != nil && !IsEOF(err) {
+			if err != nil {
 				errhandler(err)
 				continue
 			}
@@ -47,28 +48,29 @@ A:
 				!tcpf.HasFlags(TCPHEADER_FLAG_SYN) || (err != nil && !IsEOF(err)) { // must have no non-EOF error. Must be SYN packet to start TCP handshake
 				continue
 			}
+
 			_log("\n=======ipv4 dst here")
 			// conn takes care of replying
 			err = conn.SendResponse()
+
 			if err != nil {
 				errhandler(err)
+				continue A
 			}
-
+			SEQ, ACK = conn.TCP.Seq(), conn.TCP.Ack()-1
 			loopsDone := 0
 			_log("\n=======loop http decode")
-			conn.Decode()
 			// while not the packet we are looking for keep going.
-			for tcpf.Seq() != tcpf.LastSeq+1 || len(httpf.URL) == 0 || tcpf.HasFlags(TCPHEADER_FLAG_SYN) {
+			for tcpf.Seq() != SEQ+1 || len(httpf.URL) == 0 || tcpf.HasFlags(TCPHEADER_FLAG_SYN) {
 				// Get incoming ACK and skip it (len=0) and get HTTP request
-
+				err = conn.Decode()
+				if err != nil && !IsEOF(err) {
+					errhandler(err)
+				}
 				loopsDone++
 				if loopsDone > 4 {
 					_log("=======loop > 4")
 					continue A
-				}
-				err = conn.Decode()
-				if err != nil && !IsEOF(err) {
-					errhandler(err)
 				}
 			}
 			_log("HTTP:" + httpf.String())
@@ -76,12 +78,14 @@ A:
 			// Send TCP ACK first and save response
 			{
 				response = handler(httpf.URL)
-				httpLen = uint32(ipf.TotalLength()) - 20 - uint32(tcpf.Offset())*4
-				if httpLen <= 0 {
+				serverHTTPLen = uint32(len(response))
+				clientHTTPLen = uint32(ipf.TotalLength()) - 20 - uint32(tcpf.Offset())*4
+				if clientHTTPLen <= 0 {
 					panic("zero or negative calculated httplength")
 				}
-				ack := conn.TCP.Ack() + httpLen
-				tcpSet.Ack(ack)
+
+				tcpSet.Ack(ACK + clientHTTPLen + 1)
+				tcpSet.Seq(SEQ + 1)
 				tcpSet.Flags(TCPHEADER_FLAG_ACK)
 				err = conn.SendResponse()
 				if err != nil && !IsEOF(err) {
@@ -94,7 +98,7 @@ A:
 				tcpf.Set().Flags(TCPHEADER_FLAG_FIN | TCPHEADER_FLAG_PSH | TCPHEADER_FLAG_ACK)
 				httpf.Body = response
 				// calculate next sequence number expected based on response sent
-				nextseq = tcpf.Seq() + httpLen + 1
+				// nextseq = tcpf.Seq() + clientHTTPLen + 1
 				err = conn.SendResponse()
 				if err != nil && !IsEOF(err) {
 					errhandler(err)
@@ -104,7 +108,7 @@ A:
 			// clear current flags to prevent false positive
 			tcpSet.ClearFlags(TCPHEADER_FLAG_FIN)
 			conn.Decode()
-			for (tcpf.Seq() != nextseq && !tcpf.HasFlags(TCPHEADER_FLAG_FIN)) || tcpf.HasFlags(TCPHEADER_FLAG_SYN) {
+			for (tcpf.Seq() != SEQ+serverHTTPLen+1 && !tcpf.HasFlags(TCPHEADER_FLAG_FIN)) || tcpf.HasFlags(TCPHEADER_FLAG_SYN) {
 				loopsDone++
 				if loopsDone > 4 {
 					continue A
@@ -115,6 +119,9 @@ A:
 				}
 			}
 
+			tcpSet.Flags(TCPHEADER_FLAG_ACK)
+			tcpSet.Ack(ACK + clientHTTPLen + 2)
+			tcpSet.Seq(SEQ + serverHTTPLen + 2)
 			err = conn.SendResponse()
 			if err != nil && !IsEOF(err) {
 				errhandler(err)
@@ -122,6 +129,4 @@ A:
 			count++
 		}
 	}
-
-	return err
 }

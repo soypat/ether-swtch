@@ -4,6 +4,7 @@ package swtch
 // All credit to mdlayher and the ethernet Authors
 
 import (
+	"bytes"
 	"encoding/binary"
 
 	"github.com/soypat/ether-swtch/hex"
@@ -78,8 +79,11 @@ func etherIO(c *Conn) Trigger {
 func etherSet(c *Conn) Trigger {
 	_log("ethSet")
 	f := c.Ethernet
-	copy(f.Destination(), f.Source())
-	copy(f.Source(), c.macAddr)
+	Set := f.Set()
+	if !bytes.Equal(f.Source(), c.macAddr) {
+		Set.Destination(f.Source())
+		Set.Source(c.macAddr)
+	}
 	c.minPlen = 60 // not counting CRC length
 	return nil
 }

@@ -1,11 +1,11 @@
 package swtch
 
 import (
+	"bytes"
 	"encoding/binary"
 
 	"github.com/soypat/net"
 
-	"github.com/soypat/ether-swtch/bytealg"
 	"github.com/soypat/ether-swtch/rfc791"
 )
 
@@ -29,8 +29,12 @@ func ipv4Ctl(c *Conn) Trigger {
 // set IPv4 response fields.
 func ipv4Set(c *Conn) Trigger {
 	_log("ip4Set")
-	bytealg.Swap(c.IPv4.Source(), c.IPv4.Destination())
 	Set := c.IPv4.Set()
+	if !bytes.Equal(c.IPv4.Source(), c.ipAddr) {
+		Set.Destination(c.IPv4.Source())
+		Set.Source(c.ipAddr)
+	}
+
 	switch c.IPv4.Protocol() {
 	case IPHEADER_PROTOCOL_TCP:
 		if c.TCP == nil {
@@ -133,17 +137,17 @@ type IPv4Set struct {
 	ip *IPv4
 }
 
-func (s *IPv4Set) Version(v uint8)         { s.ip.data[0] = v }
-func (s *IPv4Set) IHL(ihl uint8)           { s.ip.data[1] = ihl }
-func (s *IPv4Set) TotalLength(plen uint16) { binary.BigEndian.PutUint16(s.ip.data[2:4], plen) }
-func (s *IPv4Set) ID(id uint16)            { binary.BigEndian.PutUint16(s.ip.data[4:6], id) }
-func (s *IPv4Set) Flags(ORFlags uint16)    { binary.BigEndian.PutUint16(s.ip.data[6:8], ORFlags) }
-func (s *IPv4Set) TTL(ttl uint8)           { s.ip.data[8] = ttl }
-func (s *IPv4Set) Protocol(p uint8)        { s.ip.data[9] = p }
-func (s *IPv4Set) Checksum(c uint16)       { binary.BigEndian.PutUint16(s.ip.data[10:12], c) }
+func (s IPv4Set) Version(v uint8)         { s.ip.data[0] = v }
+func (s IPv4Set) IHL(ihl uint8)           { s.ip.data[1] = ihl }
+func (s IPv4Set) TotalLength(plen uint16) { binary.BigEndian.PutUint16(s.ip.data[2:4], plen) }
+func (s IPv4Set) ID(id uint16)            { binary.BigEndian.PutUint16(s.ip.data[4:6], id) }
+func (s IPv4Set) Flags(ORFlags uint16)    { binary.BigEndian.PutUint16(s.ip.data[6:8], ORFlags) }
+func (s IPv4Set) TTL(ttl uint8)           { s.ip.data[8] = ttl }
+func (s IPv4Set) Protocol(p uint8)        { s.ip.data[9] = p }
+func (s IPv4Set) Checksum(c uint16)       { binary.BigEndian.PutUint16(s.ip.data[10:12], c) }
 
 // Source sets the source IPv4 Address
-func (s *IPv4Set) Source(ip net.IP) { copy(s.ip.data[12:16], ip) }
+func (s IPv4Set) Source(ip net.IP) { copy(s.ip.data[12:16], ip) }
 
 // Destination sets the destination IPv4 Address
-func (s *IPv4Set) Destination(ip net.IP) { copy(s.ip.data[16:20], ip) }
+func (s IPv4Set) Destination(ip net.IP) { copy(s.ip.data[16:20], ip) }

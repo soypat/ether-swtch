@@ -9,7 +9,11 @@ import (
 )
 
 func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
-	defaultMAC := net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+	var (
+		defaultMAC = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+		defaultIP  = net.IP{192, 168, 1, 5}
+	)
+
 	var tests = []struct {
 		name        string
 		mac         net.HardwareAddr
@@ -47,7 +51,7 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 		rwconn := &readbacktest{
 			packet: packet{dataOnWire: test.data},
 		}
-		connTx := NewTCPConn(rwconn, nil, defaultMAC)
+		connTx := NewTCPConn(rwconn, nil, defaultMAC, defaultIP, 80)
 		err := connTx.Decode()
 		if !IsEOF(err) && err != nil {
 			t.Fatal(err) // cannot procede without unmarshalling contents
@@ -64,7 +68,7 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 				dataOnWire: rwconn.sent(),
 			},
 		}
-		connRx := NewTCPConn(readbackconn, nil, defaultMAC)
+		connRx := NewTCPConn(readbackconn, nil, defaultMAC, defaultIP, 80)
 		err = connRx.Decode()
 		if !IsEOF(err) && err != nil {
 			t.Fatal(name, err) // cannot procede without unmarshalling contents

@@ -52,12 +52,6 @@ func arpIO(c *Conn) Trigger {
 	return nil
 }
 
-const (
-	// ethernet frame type for ARP
-	efARPType       = 0x0806
-	protoAddrTypeIP = 0x0800
-)
-
 /* ARP Frame (Address resolution protocol)
 see https://www.youtube.com/watch?v=aamG4-tH_m8
 

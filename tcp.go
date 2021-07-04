@@ -15,7 +15,8 @@ import (
 func tcpSetCtl(c *Conn) Trigger {
 	_log("tcpSetCtl")
 	var trigErr Trigger
-	if c.read { // if unmarshalling there is no work here to do.
+	// If reading data this function is not needed
+	if c.read {
 		return etherCtl
 	}
 
@@ -134,19 +135,20 @@ func tcpIO(c *Conn) Trigger {
 // set default TCP response
 func tcpSet(c *Conn) Trigger {
 	tcp := c.TCP
-	bytealg.Swap(tcp.Header[0:2], tcp.Header[2:4])
 	if tcp.PseudoHeaderInfo == nil {
 		return triggerError(ErrNeedPseudoHeader)
 	}
 	Set := tcp.Set()
-
+	if c.TCP.Source() != c.port {
+		Set.Destination(tcp.Source())
+		Set.Source(c.port)
+	}
 	// First TCP packet received clause
 	if tcp.HasFlags(TCPHEADER_FLAG_SYN) {
 		const startSeq = 2560
 		_log("tcpSet [SYN,ACK]")
 		// adds some entropy to sequence number so for loops don't get false positive packets
 		Set.Seq(startSeq) // TODO: add entropy with when package is tested: Set.Seq(uint32(0x0062&tcp.PseudoHeaderInfo.ID()) + uint32(0x00af&tcp.Checksum()))
-		tcp.LastSeq = startSeq
 		Set.UrgentPtr(0)
 		Set.Flags(TCPHEADER_FLAG_ACK | TCPHEADER_FLAG_SYN)
 		// set Maximum segment size (option 0x02) length 4 (0x04) to 1280 (0x0500)
@@ -161,7 +163,6 @@ func tcpSet(c *Conn) Trigger {
 	// Default TCP settings
 	{
 		tcp.DataOffset = 5
-		tcp.LastSeq = tcp.Seq()
 		Set.Options(nil)
 		Set.WindowSize(1024) // TODO assign meaningful value to window size (or not?)
 	}
@@ -196,7 +197,7 @@ type TCP struct {
 	PseudoHeaderInfo *IPv4
 
 	DataOffset uint8
-	LastSeq    uint32
+	// LastSeq    uint32
 	// limited implementation
 	Options [8]byte
 	// Need subframe to calculate checksum and total length.
@@ -299,7 +300,7 @@ func (tcp *TCP) StringFlags() string {
 
 func (tcp *TCP) String() string {
 	return "TCP port " + u32toa(uint32(tcp.Source())) + "->" + u32toa(uint32(tcp.Destination())) +
-		tcp.StringFlags() + "seq(" + strconv.Itoa(int(tcp.Seq()-tcp.LastSeq)) + ")"
+		tcp.StringFlags() + "seq " + strconv.Itoa(int(tcp.Seq())) + " ack " + strconv.Itoa(int(tcp.Ack()))
 }
 
 func u32toa(u uint32) string {

@@ -9,14 +9,17 @@ import (
 )
 
 func TestUnmarshalHTTPGetRequest(t *testing.T) {
-	var mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+	var (
+		mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+		ip  = net.IP{192, 168, 1, 5}
+	)
 	var rwconn = &readbacktest{
 		packet: packet{
 			dataOnWire: httpRequestDashData,
 		},
 	}
 	http := &HTTP{}
-	conn := NewTCPConn(rwconn, http, mac)
+	conn := NewTCPConn(rwconn, http, mac, ip, 80)
 	err := conn.Decode()
 	if !IsEOF(err) && err != nil {
 		t.Errorf("expected EOF or nil, got %q", err)
@@ -33,14 +36,17 @@ func TestUnmarshalHTTPGetRequest(t *testing.T) {
 }
 
 func TestHTTPResponse(t *testing.T) {
-	var mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+	var (
+		mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+		ip  = net.IP{192, 168, 1, 5}
+	)
 	var rwconn = &readbacktest{
 		packet: packet{
 			dataOnWire: httpRequestDashData,
 		},
 	}
 	http := &HTTP{}
-	rxconn := NewTCPConn(rwconn, http, mac)
+	rxconn := NewTCPConn(rwconn, http, mac, ip, 80)
 	err := rxconn.Decode()
 
 	if !IsEOF(err) && err != nil {
@@ -69,7 +75,7 @@ func TestHTTPResponse(t *testing.T) {
 		},
 	}
 	http = &HTTP{}
-	txconn := NewTCPConn(rwconn, http, mac)
+	txconn := NewTCPConn(rwconn, http, mac, ip, 80)
 	err = txconn.Decode()
 	if !IsEOF(err) && err != nil {
 		t.Errorf("expected io.EOF or nil when parsing http with no HTTP frame err, got %q", err)

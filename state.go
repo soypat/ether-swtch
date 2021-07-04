@@ -10,22 +10,27 @@ type Conn struct {
 	ARPv4    *ARPv4
 	IPv4     *IPv4
 	TCP      *TCP
-	start    Trigger
-	n        uint16
+
+	start Trigger
+	n     uint16
 	// minimum packet length. will pad extra
 	minPlen uint16
 	read    bool
 	conn    Datagrammer
 	packet  Reader
 	macAddr net.HardwareAddr
+	ipAddr  net.IP
+	port    uint16
 	err     error
 }
 
 type Trigger func(c *Conn) Trigger
 
-func NewTCPConn(rw Datagrammer, payload Frame, MAC net.HardwareAddr) *Conn {
+func NewTCPConn(rw Datagrammer, payload Frame, MAC net.HardwareAddr, IP net.IP, port uint16) *Conn {
 	conn := &Conn{
 		macAddr:  MAC,
+		ipAddr:   IP,
+		port:     port,
 		Ethernet: new(Ethernet),
 		IPv4:     new(IPv4),
 		ARPv4:    new(ARPv4),

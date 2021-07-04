@@ -13,7 +13,7 @@ func assertEqualEthernet(a, b *Ethernet) (errs []error) {
 		errs = append(errs, fmt.Errorf("source MAC %s != %s", a.Source(), b.Source()))
 	}
 	if a.EtherType() != b.EtherType() {
-		errs = append(errs, fmt.Errorf("ethertype %0x != %0x", a.EtherType(), b.EtherType()))
+		errs = append(errs, fmt.Errorf("ethertype %#x != %#x", a.EtherType(), b.EtherType()))
 	}
 	if a.IsVLAN() != b.IsVLAN() {
 		errs = append(errs, fmt.Errorf("VLAN %t != %t", a.IsVLAN(), b.IsVLAN()))
@@ -23,28 +23,28 @@ func assertEqualEthernet(a, b *Ethernet) (errs []error) {
 
 func assertEqualIPv4(a, b *IPv4) (errs []error) {
 	if a.Version() != b.Version() {
-		errs = append(errs, fmt.Errorf("ip version %0x != %0x", a.Version(), b.Version()))
+		errs = append(errs, fmt.Errorf("version %#x != %#x", a.Version(), b.Version()))
 	}
 	if a.TotalLength() != b.TotalLength() {
-		errs = append(errs, fmt.Errorf("ip totallength %d != %d", a.TotalLength(), b.TotalLength()))
+		errs = append(errs, fmt.Errorf("totallength %d != %d", a.TotalLength(), b.TotalLength()))
 	}
 	if a.ID() != b.ID() {
-		errs = append(errs, fmt.Errorf("ip ID %0x != %0x", a.ID(), b.ID()))
+		errs = append(errs, fmt.Errorf("ID %#x != %#x", a.ID(), b.ID()))
 	}
 	if a.Flags() != b.Flags() {
-		errs = append(errs, fmt.Errorf("flag  %0x != %0x", a.Flags(), b.Flags()))
+		errs = append(errs, fmt.Errorf("flag %#x != %#x", a.Flags(), b.Flags()))
 	}
 	if a.TTL() != b.TTL() {
 		errs = append(errs, fmt.Errorf("ttl %d != %d", a.TTL(), b.TTL()))
 	}
 	if a.Checksum() != b.Checksum() {
-		errs = append(errs, fmt.Errorf("checksum %0x != %0x", a.Checksum(), b.Checksum()))
+		errs = append(errs, fmt.Errorf("checksum %#x != %#x", a.Checksum(), b.Checksum()))
 	}
 	if !bytes.Equal(a.Source(), b.Source()) {
-		errs = append(errs, fmt.Errorf("source IPv4 %d != %d", a.Source(), b.Source()))
+		errs = append(errs, fmt.Errorf("source ip %d != %d", a.Source(), b.Source()))
 	}
 	if !bytes.Equal(a.Destination(), b.Destination()) {
-		errs = append(errs, fmt.Errorf("destination IPv4 %d != %d", a.Destination(), b.Destination()))
+		errs = append(errs, fmt.Errorf("destination ip %d != %d", a.Destination(), b.Destination()))
 	}
 	return errs
 }
@@ -72,13 +72,13 @@ func assertEqualTCP(a, b *TCP) (errs []error) {
 		errs = append(errs, fmt.Errorf("window size %d != %d", a.WindowSize(), b.WindowSize()))
 	}
 	if a.Checksum() != b.Checksum() {
-		errs = append(errs, fmt.Errorf("checksum %0x != %0x", a.Checksum(), b.Checksum()))
+		errs = append(errs, fmt.Errorf("checksum %#x != %#x", a.Checksum(), b.Checksum()))
 	}
 	if a.UrgentPtr() != b.UrgentPtr() {
 		errs = append(errs, fmt.Errorf("urg. ptr %d != %d", a.UrgentPtr(), b.UrgentPtr()))
 	}
 	if !bytes.Equal(a.Options[:], b.Options[:]) {
-		errs = append(errs, fmt.Errorf("options  %0x != %0x", a.Options, b.Options))
+		errs = append(errs, fmt.Errorf("options  %#x != %#x", a.Options, b.Options))
 	}
 	return errs
 }

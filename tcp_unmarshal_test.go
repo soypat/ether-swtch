@@ -10,7 +10,10 @@ import (
 )
 
 func TestUnmarshalSYNPacket(t *testing.T) {
-	var mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+	var (
+		mac    = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+		ipAddr = net.IP{192, 168, 1, 5}
+	)
 	var rwconn = &readbacktest{
 		packet: packet{
 			dataOnWire: hex.Decode([]byte(`de ad be ef fe ff 28 d2 44 9a 2f f3 08 00 45 00
@@ -20,7 +23,7 @@ fa f0 bf 4c 00 00 02 04 05 b4 04 02 08 0a 08 a2
 77 3f 00 00 00 00 01 03 03 07`)),
 		},
 	}
-	conn := NewTCPConn(rwconn, nil, mac)
+	conn := NewTCPConn(rwconn, nil, mac, ipAddr, 80)
 	err := conn.Decode()
 	if !IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
@@ -86,7 +89,10 @@ fa f0 bf 4c 00 00 02 04 05 b4 04 02 08 0a 08 a2
 }
 
 func TestUnmarshalACKPacket(t *testing.T) {
-	var mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+	var (
+		mac    = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+		ipAddr = net.IP{192, 168, 1, 5}
+	)
 	var rwconn = &readbacktest{
 		packet: packet{
 			dataOnWire: hex.Decode([]byte(`de ad be ef fe ff 28 d2 44 9a 2f f3 08 00 45 00
@@ -95,7 +101,7 @@ func TestUnmarshalACKPacket(t *testing.T) {
 fa f0 9d 00 00 00`)),
 		},
 	}
-	conn := NewTCPConn(rwconn, nil, mac)
+	conn := NewTCPConn(rwconn, nil, mac, ipAddr, 80)
 	err := conn.Decode()
 	if !IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
@@ -162,7 +168,10 @@ fa f0 9d 00 00 00`)),
 }
 
 func TestUnmarshalPSHACKRequest(t *testing.T) {
-	var mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+	var (
+		mac    = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+		ipAddr = net.IP{192, 168, 1, 5}
+	)
 	var rwconn = &readbacktest{
 		packet: packet{
 			dataOnWire: hex.Decode([]byte(`de ad be ef fe ff 28 d2 44 9a 2f f3 08 00 45 00 
@@ -193,7 +202,7 @@ fa f0 85 44 00 00 47 45 54 20 2f 20 48 54 54 50
 2d 61 67 65 3d 30 0d 0a 0d 0a`)),
 		},
 	}
-	conn := NewTCPConn(rwconn, nil, mac)
+	conn := NewTCPConn(rwconn, nil, mac, ipAddr, 80)
 	err := conn.Decode()
 	if !IsEOF(err) && err != nil {
 		t.Errorf("expected io.EOF or nil when parsing http with no HTTP frame err, got %q", err)
@@ -260,7 +269,10 @@ fa f0 85 44 00 00 47 45 54 20 2f 20 48 54 54 50
 }
 
 func TestUnmarshalACK2Packet(t *testing.T) {
-	var mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+	var (
+		mac    = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+		ipAddr = net.IP{192, 168, 1, 5}
+	)
 	var rwconn = &readbacktest{
 		packet: packet{
 			dataOnWire: hex.Decode([]byte(`de ad be ef fe ff 28 d2 44 9a 2f f3 08 00 45 00
@@ -269,7 +281,7 @@ func TestUnmarshalACK2Packet(t *testing.T) {
 f8 64 83 e0 00 00`)),
 		},
 	}
-	conn := NewTCPConn(rwconn, nil, mac)
+	conn := NewTCPConn(rwconn, nil, mac, ipAddr, 80)
 	err := conn.Decode()
 	if !IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
@@ -335,7 +347,10 @@ f8 64 83 e0 00 00`)),
 }
 
 func TestUnmarshalFINACKPacket(t *testing.T) {
-	var mac = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+	var (
+		mac    = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
+		ipAddr = net.IP{192, 168, 1, 5}
+	)
 	var rwconn = &readbacktest{
 		packet: packet{
 			dataOnWire: hex.Decode([]byte(`de ad be ef fe ff 28 d2 44 9a 2f f3 08 00 45 00
@@ -344,7 +359,7 @@ func TestUnmarshalFINACKPacket(t *testing.T) {
 f8 64 83 e0 00 00`)),
 		},
 	}
-	conn := NewTCPConn(rwconn, nil, mac)
+	conn := NewTCPConn(rwconn, nil, mac, ipAddr, 80)
 	err := conn.Decode()
 	if !IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
