@@ -225,8 +225,8 @@ func testInOutHTTPServer(t testing.TB, dg *TestDatagrammer, httpExpectedContent 
 	01 05 e6 28 00 50 3e ab 66 5c 00 00 0c f7 50 11
 	f8 64 83 e0 00 00`))}
 		// Setting SEQ number as it is important to match handshake data for success of control flow
-		binary.BigEndian.PutUint32(pAck.dataOnWire[42:46], SEQ+serverHTTPLen+1)
-		binary.BigEndian.PutUint32(pFin.dataOnWire[42:46], SEQ+serverHTTPLen+1)
+		binary.BigEndian.PutUint32(pAck.dataOnWire[42:46], SEQ+serverHTTPLen+2)
+		binary.BigEndian.PutUint32(pFin.dataOnWire[42:46], SEQ+serverHTTPLen+2)
 		dg.in(pAck, pFin)
 		// ethAck, ipAck, tcpAck, _ := parseHTTPPacket(pAck)
 		p := dg.out()

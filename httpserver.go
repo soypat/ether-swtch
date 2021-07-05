@@ -2,6 +2,7 @@ package swtch
 
 import (
 	"bytes"
+	"strconv"
 	"time"
 
 	"github.com/soypat/net"
@@ -73,11 +74,13 @@ A:
 					// deadline exceeded
 					continue A
 				}
+
 				// Get incoming ACK and skip it (len=0) and get HTTP request
 				err = conn.Decode()
 				if err != nil && !IsEOF(err) {
 					errhandler(err)
 				}
+				_log("[ACK] loop expecting " + strconv.Itoa(int(SEQ+1)) + " got " + strconv.Itoa(int(tcpf.Seq())))
 			}
 			_log("HTTP:" + httpf.String())
 
@@ -112,7 +115,7 @@ A:
 
 			// clear current flags to prevent false positive. We seek to ACK the FIN|ACK segment.
 			tcpSet.ClearFlags(TCPHEADER_FLAG_FIN)
-			for tcpf.Seq() != SEQ+serverHTTPLen+1 || tcpf.Flags() != TCPHEADER_FLAG_FIN|TCPHEADER_FLAG_ACK {
+			for tcpf.Seq() != SEQ+serverHTTPLen+2 || tcpf.Flags() != TCPHEADER_FLAG_FIN|TCPHEADER_FLAG_ACK {
 				if time.Now().After(deadline) {
 					// deadline exceeded
 					continue A
@@ -121,6 +124,7 @@ A:
 				if err != nil && !IsEOF(err) {
 					errhandler(err)
 				}
+				_log("[FIN] loop expecting seq " + strconv.Itoa(int(SEQ+serverHTTPLen+2)) + " got " + strconv.Itoa(int(tcpf.Seq())) + "\n")
 			}
 
 			tcpSet.Flags(TCPHEADER_FLAG_ACK)

@@ -10,6 +10,7 @@ var (
 	ErrUnknownIPProtocol  = errors.New("swtch: unable to follow ip protocol ctl")
 	// The protocol handler is available to user but was not found in Conn instance.
 	ErrNoProtocol = errors.New("swtch: uninitialized or missing protocol")
+	ErrTimeout    = errors.New("swtch: connection timeout")
 )
 
 var (
