@@ -27,7 +27,7 @@ func BenchmarkHTTPServer(b *testing.B) {
 func TestHTTPServer(t *testing.T) {
 	t.Parallel()
 	const N = 100
-	timeout := time.Hour * 500 // long timeout given testing environment (for debugging)
+	timeout := time.Hour // long timeout given testing environment (for debugging)
 	var (
 		mac         = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
 		httpContent = defaultOKHeader + "Hello World!"
@@ -281,8 +281,18 @@ type TestDatagrammer struct {
 	buffer []*packet
 }
 
-func (dg *TestDatagrammer) NextPacket() (Reader, error) {
-	return <-dg.rx, nil
+func (dg *TestDatagrammer) NextPacket(deadline time.Time) (Reader, error) {
+	for {
+		if time.Since(deadline) > 0 {
+			return nil, ErrDeadlineExceed
+		}
+		select {
+		case r := <-dg.rx:
+			return r, nil
+		default:
+			time.Sleep(time.Millisecond * 3)
+		}
+	}
 }
 
 func (dg *TestDatagrammer) Write(b []byte) (uint16, error) {

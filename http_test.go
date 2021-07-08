@@ -2,6 +2,7 @@ package swtch
 
 import (
 	"testing"
+	"time"
 
 	"github.com/soypat/net"
 
@@ -19,7 +20,7 @@ func TestUnmarshalHTTPGetRequest(t *testing.T) {
 		},
 	}
 	http := &HTTP{}
-	conn := NewTCPConn(rwconn, http, mac, ip, 80)
+	conn := NewTCPConn(rwconn, http, time.Second, mac, ip, 80)
 	err := conn.Decode()
 	if !IsEOF(err) && err != nil {
 		t.Errorf("expected EOF or nil, got %q", err)
@@ -46,7 +47,7 @@ func TestHTTPResponse(t *testing.T) {
 		},
 	}
 	http := &HTTP{}
-	rxconn := NewTCPConn(rwconn, http, mac, ip, 80)
+	rxconn := NewTCPConn(rwconn, http, time.Second, mac, ip, 80)
 	err := rxconn.Decode()
 	if !IsEOF(err) && err != nil {
 		t.Errorf("expected EOF or nil, got %q", err)
@@ -74,7 +75,7 @@ func TestHTTPResponse(t *testing.T) {
 		},
 	}
 	http = &HTTP{}
-	txconn := NewTCPConn(rwconn, http, mac, ip, 80)
+	txconn := NewTCPConn(rwconn, http, time.Second, mac, ip, 80)
 	err = txconn.Decode()
 	if !IsEOF(err) && err != nil {
 		t.Errorf("expected io.EOF or nil when parsing http with no HTTP frame err, got %q", err)

@@ -3,6 +3,7 @@ package swtch
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/soypat/net"
 
@@ -23,7 +24,7 @@ fa f0 bf 4c 00 00 02 04 05 b4 04 02 08 0a 08 a2
 77 3f 00 00 00 00 01 03 03 07`)),
 		},
 	}
-	conn := NewTCPConn(rwconn, nil, mac, ipAddr, 80)
+	conn := NewTCPConn(rwconn, nil, time.Second, mac, ipAddr, 80)
 	err := conn.Decode()
 	if !IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
@@ -101,7 +102,7 @@ func TestUnmarshalACKPacket(t *testing.T) {
 fa f0 9d 00 00 00`)),
 		},
 	}
-	conn := NewTCPConn(rwconn, nil, mac, ipAddr, 80)
+	conn := NewTCPConn(rwconn, nil, time.Second, mac, ipAddr, 80)
 	err := conn.Decode()
 	if !IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
@@ -202,7 +203,7 @@ fa f0 85 44 00 00 47 45 54 20 2f 20 48 54 54 50
 2d 61 67 65 3d 30 0d 0a 0d 0a`)),
 		},
 	}
-	conn := NewTCPConn(rwconn, nil, mac, ipAddr, 80)
+	conn := NewTCPConn(rwconn, nil, time.Second, mac, ipAddr, 80)
 	err := conn.Decode()
 	if !IsEOF(err) && err != nil {
 		t.Errorf("expected io.EOF or nil when parsing http with no HTTP frame err, got %q", err)
@@ -281,7 +282,7 @@ func TestUnmarshalACK2Packet(t *testing.T) {
 f8 64 83 e0 00 00`)),
 		},
 	}
-	conn := NewTCPConn(rwconn, nil, mac, ipAddr, 80)
+	conn := NewTCPConn(rwconn, nil, time.Second, mac, ipAddr, 80)
 	err := conn.Decode()
 	if !IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
@@ -359,7 +360,7 @@ func TestUnmarshalFINACKPacket(t *testing.T) {
 f8 64 83 e0 00 00`)),
 		},
 	}
-	conn := NewTCPConn(rwconn, nil, mac, ipAddr, 80)
+	conn := NewTCPConn(rwconn, nil, time.Second, mac, ipAddr, 80)
 	err := conn.Decode()
 	if !IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
@@ -440,7 +441,12 @@ func (r *readbacktest) Reset() error {
 	return nil
 }
 
-func (r *readbacktest) NextPacket() (Reader, error) { return &r.packet, nil }
+func (r *readbacktest) NextPacket(deadline time.Time) (Reader, error) {
+	if time.Since(deadline) > 0 {
+		return nil, ErrDeadlineExceed
+	}
+	return &r.packet, nil
+}
 
 func (r *readbacktest) Flush() error { return nil }
 

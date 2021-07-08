@@ -9,8 +9,8 @@ var (
 	ErrUnknownEthProtocol = errors.New("swtch: unable to follow ethernet protocol ctl")
 	ErrUnknownIPProtocol  = errors.New("swtch: unable to follow ip protocol ctl")
 	// The protocol handler is available to user but was not found in Conn instance.
-	ErrNoProtocol = errors.New("swtch: uninitialized or missing protocol")
-	ErrTimeout    = errors.New("swtch: connection timeout")
+	ErrNoProtocol     = errors.New("swtch: uninitialized or missing protocol")
+	ErrDeadlineExceed = errors.New("swtch: connection deadline exceeded")
 )
 
 var (

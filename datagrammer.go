@@ -1,6 +1,10 @@
 package swtch
 
-import "github.com/soypat/net"
+import (
+	"time"
+
+	"github.com/soypat/net"
+)
 
 // Reader reads from a packet that was received through stream.
 type Reader interface {
@@ -17,7 +21,7 @@ type Writer interface {
 
 type PacketReader interface {
 	// Returns a Reader that reads from the next packet.
-	NextPacket() (Reader, error)
+	NextPacket(deadline time.Time) (Reader, error)
 }
 
 type PacketWriter interface {

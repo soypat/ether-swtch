@@ -2,6 +2,7 @@ package swtch
 
 import (
 	"testing"
+	"time"
 
 	"github.com/soypat/net"
 
@@ -51,7 +52,7 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 		rwconn := &readbacktest{
 			packet: packet{dataOnWire: test.data},
 		}
-		connTx := NewTCPConn(rwconn, nil, defaultMAC, defaultIP, 80)
+		connTx := NewTCPConn(rwconn, nil, time.Second, defaultMAC, defaultIP, 80)
 		err := connTx.Decode()
 		if !IsEOF(err) && err != nil {
 			t.Fatal(err) // cannot procede without unmarshalling contents
@@ -68,7 +69,7 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 				dataOnWire: rwconn.sent(),
 			},
 		}
-		connRx := NewTCPConn(readbackconn, nil, defaultMAC, defaultIP, 80)
+		connRx := NewTCPConn(readbackconn, nil, time.Second, defaultMAC, defaultIP, 80)
 		err = connRx.Decode()
 		if !IsEOF(err) && err != nil {
 			t.Fatal(name, err) // cannot procede without unmarshalling contents

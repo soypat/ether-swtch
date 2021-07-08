@@ -17,7 +17,7 @@ func HTTPListenAndServe(dg Datagrammer, mac net.HardwareAddr, IPAddr net.IP, tim
 		clientHTTPLen, serverHTTPLen, ACK, SEQ uint32
 		response                               []byte
 	)
-	conn := NewTCPConn(dg, httpf, mac, IPAddr, 80)
+	conn := NewTCPConn(dg, httpf, timeout, mac, IPAddr, 80)
 
 	// declare shorthand frames
 	eth := conn.Ethernet
@@ -25,9 +25,9 @@ func HTTPListenAndServe(dg Datagrammer, mac net.HardwareAddr, IPAddr net.IP, tim
 	tcpf := conn.TCP
 	arpf := conn.ARPv4
 	tcpSet := tcpf.Set()
-	var deadline time.Time
 	var err error
-A:
+
+START: // START begins search for a new TCP connection.
 	for {
 		err = conn.Reset()
 		if err != nil {
@@ -36,7 +36,7 @@ A:
 		err = conn.Decode()
 		if err != nil && !IsEOF(err) {
 			errhandler(err)
-			continue
+			continue START
 		}
 
 		if eth.EtherType() == EtherTypeARP && bytes.Equal(arpf.ProtoTarget(), IPAddr) {
@@ -45,40 +45,36 @@ A:
 			err = conn.SendResponse()
 			if err != nil {
 				errhandler(err)
-				continue
+				continue START
 			}
 			count++
 
 		} else if eth.EtherType() == EtherTypeIPv4 {
-			deadline = time.Now().Add(timeout)
 			// TCP Packet control
 			if !bytes.Equal(ipf.Destination(), IPAddr) || !bytes.Equal(eth.Destination(), mac) || // check destination address is ours
 				!tcpf.HasFlags(TCPHEADER_FLAG_SYN) { // Must be SYN packet to start TCP handshake
-				continue
+				continue START
 			}
 
 			_log("\n=======ipv4 dst here")
 			// conn takes care of replying
 			err = conn.SendResponse()
-
 			if err != nil {
 				errhandler(err)
-				continue A
+				continue START
 			}
+
 			SEQ, ACK = tcpf.Seq(), tcpf.Ack()-1
 
 			_log("\n=======loop http decode")
 			// while not the packet we are looking for keep going.
 			for tcpf.Seq() != SEQ+1 || len(httpf.URL) == 0 || httpf.Method == httpUNDEFINED || tcpf.HasFlags(TCPHEADER_FLAG_SYN) || tcpf.Flags() == TCPHEADER_FLAG_ACK {
-				if time.Now().After(deadline) {
-					// deadline exceeded
-					continue A
-				}
 
 				// Get incoming ACK and skip it (len=0) and get HTTP request
 				err = conn.Decode()
 				if err != nil && !IsEOF(err) {
 					errhandler(err)
+					continue START
 				}
 				_log("[ACK] loop expecting " + strconv.Itoa(int(SEQ+1)) + " got " + strconv.Itoa(int(tcpf.Seq())))
 			}
@@ -91,7 +87,7 @@ A:
 				clientHTTPLen = uint32(ipf.TotalLength()) - 20 - uint32(tcpf.Offset())*4
 				if clientHTTPLen <= 0 {
 					_log("got a zero length HTTP packet")
-					continue A
+					continue START
 				}
 				httpf.Body = nil
 				tcpSet.Ack(ACK + clientHTTPLen + 1)
@@ -100,6 +96,7 @@ A:
 				err = conn.SendResponse()
 				if err != nil {
 					errhandler(err)
+					continue START
 				}
 			}
 
@@ -110,19 +107,17 @@ A:
 				err = conn.SendResponse()
 				if err != nil {
 					errhandler(err)
+					continue START
 				}
 			}
 
 			// clear current flags to prevent false positive. We seek to ACK the FIN|ACK segment.
 			tcpSet.ClearFlags(TCPHEADER_FLAG_FIN)
 			for tcpf.Seq() != SEQ+serverHTTPLen+2 || tcpf.Flags() != TCPHEADER_FLAG_FIN|TCPHEADER_FLAG_ACK {
-				if time.Now().After(deadline) {
-					// deadline exceeded
-					continue A
-				}
 				err = conn.Decode()
 				if err != nil && !IsEOF(err) {
 					errhandler(err)
+					continue START
 				}
 				_log("[FIN] loop expecting seq " + strconv.Itoa(int(SEQ+serverHTTPLen+2)) + " got " + strconv.Itoa(int(tcpf.Seq())) + "\n")
 			}

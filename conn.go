@@ -1,6 +1,8 @@
 package swtch
 
 import (
+	"time"
+
 	"github.com/soypat/net"
 )
 
@@ -11,8 +13,9 @@ type Conn struct {
 	IPv4     *IPv4
 	TCP      *TCP
 
-	start Trigger
-	n     uint16
+	timeout time.Duration
+	start   Trigger
+	n       uint16
 	// minimum packet length. will pad extra
 	minPlen uint16
 	read    bool
@@ -26,7 +29,7 @@ type Conn struct {
 
 type Trigger func(c *Conn) Trigger
 
-func NewTCPConn(rw Datagrammer, payload Frame, MAC net.HardwareAddr, IP net.IP, port uint16) *Conn {
+func NewTCPConn(rw Datagrammer, payload Frame, timeout time.Duration, MAC net.HardwareAddr, IP net.IP, port uint16) *Conn {
 	conn := &Conn{
 		macAddr:  MAC,
 		ipAddr:   IP,
@@ -36,6 +39,7 @@ func NewTCPConn(rw Datagrammer, payload Frame, MAC net.HardwareAddr, IP net.IP, 
 		ARPv4:    new(ARPv4),
 		TCP:      &TCP{SubFrame: payload},
 		start:    tcpSetCtl, // TCPConn commanded by ethernet frames as data-link layer
+		timeout:  timeout,
 	}
 	conn.conn = rw
 	conn.TCP.PseudoHeaderInfo = conn.IPv4
@@ -58,7 +62,7 @@ func (c *Conn) Decode() error {
 		}
 	}
 	c.read = true
-	r, err := c.conn.NextPacket()
+	r, err := c.conn.NextPacket(time.Now().Add(c.timeout))
 	if err != nil {
 		return err
 	}
