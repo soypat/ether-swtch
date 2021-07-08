@@ -1,9 +1,10 @@
 # ether-swtch
-Low level Ethernet stack marshaller/unmarshaller for use in tiny places.
+Low level Ethernet/IP/TCP/HTTP stack marshaller/unmarshaller for use in tiny places.
 
 
 *This is a work in progress. The API is subject to change.*
 
+Below is an example of an HTTP server for the ENC28J60 integrated circuit using TinyGo. Works on the Arduino Mega 2560.
 ```go
 package main
 
@@ -11,33 +12,35 @@ import (
     "github.com/soypat/net"
 
     swtch "github.com/soypat/ether-swtch"
-	"github.com/soypat/ether-swtch/hex"
+    "github.com/soypat/ether-swtch/hex"
 )
 
 func main() {
-    // initialization of what could be an HTTP server.
-    MAC := net.HardwareAddr(hex.Decode([]byte("de:ad:be:ef:fe:ff")))
-    conn := swtch.NewTCPConn(sim, &swtch.HTTP{}, MAC)
+	var (
+		// SPI Chip select pin. Can be any Digital pin.
+		spiCS = machine.D53
+		MAC   = net.HardwareAddr{0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xFF}
+		MyIP  = net.IP{192, 168, 1, 5} //static setup is the only one available
+	)
 
-    err := conn.Decode() // decode the next incoming connection
-    if !swtch.IsEOF(err) {
-        panic(err)
-    }
-    // conn stores headers in TCP, Ethernet, IP and HTTP frames.
+	// Configure writer/reader integrated circuit.
+	dev := enc28j60.New(spiCS, machine.SPI0)
 
-    // We now encode our response.
-    // Encode method has response logic, we only need to call it.
-    err = conn.Encode()
+	err := dev.Init(MAC)
 	if err != nil {
-		panic(err)
+		println(err.Error())
 	}
-    // Send method signals the packet is ready to be
-    // sent over the wire.
-	err = conn.Send()
-    if err != nil {
-        panic(err)
-    }
+	const okHeader = "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\nPragma: no-cache\r\n\r\n"
+	timeout := time.Second * 1
+	// Spin up HTTP server which responds with "Hello world!"
+	swtch.HTTPListenAndServe(dev, MAC, MyIP, timeout, func(URL []byte) (response []byte) {
+		return []byte(okHeader + "Hello world!")
+	}, printNonNilErr)
 }
 
-
+func printNonNilErr(err error) {
+	if err != nil {
+		println(err.Error())
+	}
+}
 ```
