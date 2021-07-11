@@ -1,19 +1,5 @@
 package bytealg
 
-// equal checks if two byte slices are equal.
-// It is equivalent to bytes.equal but no
-func equal(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i, v := range a {
-		if v != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 // The following code has been copied from the Go 1.15 release tree.
 
 // primerRK is the prime base used in Rabin-Karp algorithm.
@@ -66,4 +52,18 @@ func hashStrBytes(sep []byte) (uint32, uint32) {
 		sq *= sq
 	}
 	return hash, pow
+}
+
+// equal checks if two byte slices are equal.
+// It is equivalent to bytes.equal but no
+func equal(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
 }

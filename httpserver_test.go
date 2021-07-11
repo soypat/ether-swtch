@@ -24,6 +24,7 @@ func BenchmarkHTTPServer(b *testing.B) {
 		testInOutHTTPServer(b, dg, httpContent)
 	}
 }
+
 func TestHTTPServer(t *testing.T) {
 	t.Parallel()
 	const N = 100

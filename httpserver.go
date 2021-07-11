@@ -2,22 +2,31 @@ package swtch
 
 import (
 	"bytes"
-	"strconv"
 	"time"
 
 	"github.com/soypat/net"
 )
 
+var (
+	httpserverHTTPFrame HTTP
+	httpserverEthFrame  Ethernet
+	httpserverIPFrame   IPv4
+	httpserverTCPFrame  TCP
+	httpserverARPFrame  ARPv4
+)
+
+// Not safe for multiple instantiations.
 func HTTPListenAndServe(dg Datagrammer, mac net.HardwareAddr, IPAddr net.IP, timeout time.Duration, handler func(URL []byte) (response []byte), errhandler func(error)) {
 	var count uint
-	httpf := new(HTTP)
+	var httpf *HTTP = &httpserverHTTPFrame
+
 	// HTTP/TCP variables
 	var (
 		// HTTPLen variables accumulate total data sent by the client and server
 		clientHTTPLen, serverHTTPLen, ACK, SEQ uint32
 		response                               []byte
 	)
-	conn := NewTCPConn(dg, httpf, timeout, mac, IPAddr, 80)
+	conn := newTCPconn(dg, &httpserverEthFrame, &httpserverIPFrame, &httpserverARPFrame, &httpserverTCPFrame, httpf, timeout, mac, IPAddr, 80)
 
 	// declare shorthand frames
 	eth := conn.Ethernet
@@ -76,9 +85,9 @@ START: // START begins search for a new TCP connection.
 					errhandler(err)
 					continue START
 				}
-				_log("[ACK] loop expecting " + strconv.Itoa(int(SEQ+1)) + " got " + strconv.Itoa(int(tcpf.Seq())))
+				_log(strcat("[ACK] loop expecting ", u32toa(SEQ+1), " got ", u32toa(tcpf.Seq())))
 			}
-			_log("HTTP:" + httpf.String())
+			_logStringer("HTTP:", httpf)
 
 			// Send TCP ACK first and save response
 			{
@@ -119,7 +128,7 @@ START: // START begins search for a new TCP connection.
 					errhandler(err)
 					continue START
 				}
-				_log("[FIN] loop expecting seq " + strconv.Itoa(int(SEQ+serverHTTPLen+2)) + " got " + strconv.Itoa(int(tcpf.Seq())) + "\n")
+				_log(strcat("[FIN] loop expecting seq ", u32toa(SEQ+serverHTTPLen+2), " got ", u32toa(tcpf.Seq()), "\n"))
 			}
 
 			tcpSet.Flags(TCPHEADER_FLAG_ACK)
@@ -129,7 +138,7 @@ START: // START begins search for a new TCP connection.
 			if err != nil {
 				errhandler(err)
 			}
-			_log("\nEnd TCP handshake with :" + tcpf.String())
+			_logStringer("\nEnd TCP handshake with :", tcpf)
 			count++
 		}
 	}

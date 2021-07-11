@@ -2,10 +2,8 @@ package swtch
 
 import (
 	"encoding/binary"
-	"strconv"
 
 	"github.com/soypat/ether-swtch/bytealg"
-	"github.com/soypat/ether-swtch/rfc791"
 )
 
 // TCP state machine logic.
@@ -52,27 +50,25 @@ func tcpCtl(c *Conn) Trigger {
 }
 
 func tcpIO(c *Conn) Trigger {
-	var n uint16
-	var err error
 	if c.read {
 		// Unmarshal block.
-		n, err = c.packet.Read(c.TCP.Header[:])
-		c.n += n
-		if n >= 12 {
+		c.auxn, c.err = c.packet.Read(c.TCP.Header[:])
+		c.n += c.auxn
+		if c.auxn >= 12 {
 			// switch Ack and Seq (client ack is our seq and vice versa)
 			bytealg.Swap(c.TCP.Header[4:8], c.TCP.Header[8:12])
 		}
-		_log("tcp:decode", c.TCP.Header[:n])
-		if err != nil {
-			return triggerError(err)
+		_log("tcp:decode", c.TCP.Header[:c.auxn])
+		if c.err != nil {
+			return triggerError(c, c.err)
 		}
 		// Options are present branch
 		for i := 0; i < int(c.TCP.Offset()-5); i++ {
 			oi := (i % (len(c.TCP.Options) / TCP_WORDLEN)) * 4 // Option index rewrites options if exceed option array length
-			n, err = c.packet.Read(c.TCP.Options[oi : oi+TCP_WORDLEN])
-			c.n += n
-			if err != nil {
-				return triggerError(err)
+			c.auxn, c.err = c.packet.Read(c.TCP.Options[oi : oi+TCP_WORDLEN])
+			c.n += c.auxn
+			if c.err != nil {
+				return triggerError(c, c.err)
 			}
 		}
 		if c.IPv4.TotalLength()-20-uint16(c.TCP.Offset())*TCP_WORDLEN <= 0 || c.TCP.SubFrame == nil {
@@ -80,10 +76,10 @@ func tcpIO(c *Conn) Trigger {
 		}
 		// Ease stack usage by returning this function and starting TCP's payload decoding in new function.
 		return func(c *Conn) Trigger {
-			n, err = c.TCP.SubFrame.Decode(c.packet)
-			c.n += n
-			if err != nil {
-				return triggerError(err)
+			c.auxn, c.err = c.TCP.SubFrame.Decode(c.packet)
+			c.n += c.auxn
+			if c.err != nil {
+				return triggerError(c, c.err)
 			}
 			return nil
 		}
@@ -91,7 +87,7 @@ func tcpIO(c *Conn) Trigger {
 	_log("tcp:encode")
 	// Marshal block.
 	if c.TCP.PseudoHeaderInfo.Version() != IPHEADER_VERSION_4 {
-		return triggerError(ErrNotIPv4)
+		return triggerError(c, ErrNotIPv4)
 	}
 	Set := c.TCP.Set()
 	// data offset
@@ -99,36 +95,37 @@ func tcpIO(c *Conn) Trigger {
 
 	// Begin RFC791 Checksum calculation.
 	Set.Checksum(0)
-	var encoders []func(r Writer) (n uint16, err error) = []func(r Writer) (n uint16, err error){
-		c.TCP.encodePseudo,
-		c.TCP.encodeHeader,
-		c.TCP.encodeOptions,
-	}
+	checksum := &c.checksum
+	checksum.Reset()
 	// Only write subframe if IP packet len is long enough.
-	if c.IPv4.TotalLength()-20-uint16(c.TCP.Offset())*TCP_WORDLEN > 0 {
-		encoders = append(encoders, c.TCP.encodeFramer)
-	}
-	checksum := rfc791.New()
-	for i := range encoders {
-		_, err = encoders[i](checksum)
-		if err != nil {
-			return triggerError(err)
+	hasPayload := c.IPv4.TotalLength()-20-uint16(c.TCP.Offset())*TCP_WORDLEN > 0
+	for i := range c.TCP.encoders {
+		if i == 3 && !hasPayload {
+			continue
+		}
+		_, c.err = c.TCP.encoders[i](checksum)
+		if c.err != nil {
+			return triggerError(c, c.err)
 		}
 	}
+
 	binary.BigEndian.PutUint16(c.TCP.Header[16:18], checksum.Sum())
 
 	// Write TCP header and payload to data
-	for i := range encoders[1:] { // skip pseudo header and subFramer
-		n, err = encoders[i+1](c.conn)
-		c.n += n
-		if err != nil {
-			return triggerError(err)
+	for i := range c.TCP.encoders[1:] { // skip pseudo header and subFramer
+		if i == 2 && !hasPayload {
+			continue
+		}
+		c.auxn, c.err = c.TCP.encoders[i+1](c.conn)
+		c.n += c.auxn
+		if c.err != nil {
+			return triggerError(c, c.err)
 		}
 	}
 	if c.TCP.SubFrame != nil {
-		err = c.TCP.SubFrame.Reset()
-		if err != nil {
-			return triggerError(err)
+		c.err = c.TCP.SubFrame.Reset()
+		if c.err != nil {
+			return triggerError(c, c.err)
 		}
 	}
 	return nil
@@ -138,7 +135,7 @@ func tcpIO(c *Conn) Trigger {
 func tcpSet(c *Conn) Trigger {
 	tcp := c.TCP
 	if tcp.PseudoHeaderInfo == nil {
-		return triggerError(ErrNeedPseudoHeader)
+		return triggerError(c, ErrNeedPseudoHeader)
 	}
 	Set := tcp.Set()
 	if c.TCP.Source() != c.port {
@@ -194,7 +191,6 @@ const (
 type TCP struct {
 	// frame data
 	Header [20]byte
-
 	// TCP requires a 12 byte pseudo-header to calculate the checksum
 	PseudoHeaderInfo *IPv4
 
@@ -203,6 +199,8 @@ type TCP struct {
 	Options [8]byte
 	// Need subframe to calculate checksum and total length.
 	SubFrame Frame
+
+	encoders [4]func(r Writer) (uint16, error)
 }
 
 func (tcp *TCP) Source() uint16      { return binary.BigEndian.Uint16(tcp.Header[0:2]) }
@@ -217,14 +215,23 @@ func (tcp *TCP) WindowSize() uint16 { return binary.BigEndian.Uint16(tcp.Header[
 func (tcp *TCP) Checksum() uint16   { return binary.BigEndian.Uint16(tcp.Header[16:18]) }
 func (tcp *TCP) UrgentPtr() uint16  { return binary.BigEndian.Uint16(tcp.Header[18:20]) }
 
-// checksumHeader IPv4 TCP packet and PseudoHeader
+// checksumHeader IPv4 TCP packet and PseudoHeader. Is not safe for concurrent use as it modifies the IP header
 func (tcp *TCP) encodePseudo(w Writer) (n uint16, err error) {
+	// We take advantage of field layout to avoid heap allocation.
+	// |8 TTL |9 Proto |10 Checksum |12  Source  |16  Destination |20
+	// |set 0 |  nop   | set length | nop        | nop            |
 	ph := tcp.PseudoHeaderInfo
 	ln := tcp.FrameLength()
+	set := ph.Set()
+	ttl := ph.TTL()
+	sum := ph.Checksum()
+	set.TTL(0)
+	set.Checksum(ln)
 	// encode pseudo frame
-	pseudoHeader := append(append(ph.Source(), ph.Destination()...), 0, ph.Protocol(), uint8(ln>>8), uint8(ln))
-	n, err = w.Write(pseudoHeader)
-	_log("tcp:encode pseudo", pseudoHeader[:n])
+	n, err = w.Write(ph.data[8:20])
+	set.TTL(ttl)
+	set.Checksum(sum)
+	_log("tcp:encode pseudo", ph.data[8:20])
 	return
 }
 func (tcp *TCP) encodeOptions(w Writer) (n uint16, err error) {
@@ -297,16 +304,12 @@ func (tcp *TCP) StringFlags() string {
 		flagbuff[n] = ']'
 		n++
 	}
-	return string(flagbuff[:n])
+	return bytealg.String(flagbuff[:n])
 }
 
 func (tcp *TCP) String() string {
-	return "TCP port " + u32toa(uint32(tcp.Source())) + "->" + u32toa(uint32(tcp.Destination())) +
-		tcp.StringFlags() + "seq " + strconv.Itoa(int(tcp.Seq())) + " ack " + strconv.Itoa(int(tcp.Ack()))
-}
-
-func u32toa(u uint32) string {
-	return strconv.Itoa(int(u))
+	return strcat("TCP port ", u32toa(uint32(tcp.Source())), "->", u32toa(uint32(tcp.Destination())),
+		tcp.StringFlags(), "seq ", u32toa(tcp.Seq()), " ack ", u32toa(tcp.Ack()))
 }
 
 func (tcp *TCP) Set() TCPSet {

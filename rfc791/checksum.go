@@ -61,3 +61,9 @@ func (c *Checksum) Sum() uint16 {
 	}
 	return ^uint16(c.sum)
 }
+
+func (c *Checksum) Reset() {
+	c.sum = 0
+	c.excedent = 0
+	c.needsPad = false
+}

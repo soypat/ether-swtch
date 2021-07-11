@@ -1,5 +1,7 @@
 package hex
 
+import "github.com/soypat/ether-swtch/bytealg"
+
 // Byte converts a single byte to an ASCII
 // byte slice representation.
 //
@@ -37,7 +39,7 @@ func Bytes(b []byte) []byte {
 // PrintBytes print binary slice as hexadecimal with minimal memory allocation. uses `print()`
 func PrintBytes(b []byte) {
 	for i := 0; i < len(b); i++ {
-		print(string(Byte(b[i])))
+		print(bytealg.String(Byte(b[i])))
 	}
 }
 

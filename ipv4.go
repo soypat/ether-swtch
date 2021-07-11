@@ -5,8 +5,6 @@ import (
 	"encoding/binary"
 
 	"github.com/soypat/net"
-
-	"github.com/soypat/ether-swtch/rfc791"
 )
 
 // IP state machine logic.
@@ -23,7 +21,7 @@ func ipv4Ctl(c *Conn) Trigger {
 		}
 		return tcpCtl
 	}
-	return triggerError(ErrUnknownIPProtocol)
+	return triggerError(c, ErrUnknownIPProtocol)
 }
 
 // set IPv4 response fields.
@@ -38,12 +36,12 @@ func ipv4Set(c *Conn) Trigger {
 	switch c.IPv4.Protocol() {
 	case IPHEADER_PROTOCOL_TCP:
 		if c.TCP == nil {
-			return triggerError(ErrNoProtocol)
+			return triggerError(c, ErrNoProtocol)
 		}
 		Set.TotalLength(c.TCP.FrameLength() + 20) // 20 is the IPv4 header length.
 		return nil
 	}
-	return triggerError(ErrUnknownIPProtocol)
+	return triggerError(c, ErrUnknownIPProtocol)
 }
 
 func ipv4IO(c *Conn) Trigger {
@@ -55,7 +53,7 @@ func ipv4IO(c *Conn) Trigger {
 		c.n += n
 		_log("ip4:decode", c.IPv4.data[:n])
 		if err != nil {
-			return triggerError(err)
+			return triggerError(c, err)
 		}
 		return nil
 	}
@@ -65,13 +63,14 @@ func ipv4IO(c *Conn) Trigger {
 	// set checksum field to zero to calculate new RFC791 checksum.
 	c.IPv4.data[10] = 0
 	c.IPv4.data[11] = 0
-	checksum := rfc791.New()
-	checksum.Write(c.IPv4.data[:])
-	binary.BigEndian.PutUint16(c.IPv4.data[10:12], checksum.Sum())
+	c.checksum.Reset()
+	c.checksum.Write(c.IPv4.data[:])
+
+	binary.BigEndian.PutUint16(c.IPv4.data[10:12], c.checksum.Sum())
 	n, err = c.conn.Write(c.IPv4.data[:])
 	c.n += n
 	if err != nil {
-		return triggerError(err)
+		return triggerError(c, err)
 	}
 	return nil
 }
@@ -96,6 +95,8 @@ const (
 // Set Plen on every response.
 type IPv4 struct {
 	data [20]byte
+	// sliced on initialization since slicing during run has some overhead
+	pseudodata []byte
 }
 
 func (ip *IPv4) Version() uint8 { return ip.data[0] }
@@ -121,7 +122,7 @@ func (ip *IPv4) FrameLength() uint16 {
 }
 
 func (ip *IPv4) String() string {
-	return "IPv4 " + ip.Source().String() + "->" + ip.Destination().String()
+	return strcat("IPv4 ", ip.Source().String(), "->", ip.Destination().String())
 }
 
 type IPFlags uint16

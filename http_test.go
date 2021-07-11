@@ -6,6 +6,7 @@ import (
 
 	"github.com/soypat/net"
 
+	"github.com/soypat/ether-swtch/bytealg"
 	"github.com/soypat/ether-swtch/hex"
 )
 
@@ -29,7 +30,7 @@ func TestUnmarshalHTTPGetRequest(t *testing.T) {
 
 	// HTTP frame checks.
 	switch {
-	case string(http.URL) != "/":
+	case bytealg.String(http.URL) != "/":
 		t.Errorf("http: parse URL, got %q", string(http.URL))
 	case http.Method.String() != "GET":
 		t.Error("http: method type, " + http.Method.String())

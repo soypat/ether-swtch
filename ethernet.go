@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
+	"github.com/soypat/ether-swtch/bytealg"
 	"github.com/soypat/ether-swtch/hex"
 	"github.com/soypat/net"
 )
@@ -33,7 +34,7 @@ func etherCtl(c *Conn) Trigger {
 		}
 		return ipv4Ctl
 	}
-	return triggerError(ErrUnknownEthProtocol)
+	return triggerError(c, ErrUnknownEthProtocol)
 }
 
 // etherIO reads to or writes data from
@@ -54,7 +55,7 @@ func etherIO(c *Conn) Trigger {
 		_log("eth:send", f.data[:n])
 		c.n += n
 		if err != nil {
-			return triggerError(err)
+			return triggerError(c, err)
 		}
 		return nil
 	}
@@ -63,13 +64,13 @@ func etherIO(c *Conn) Trigger {
 	c.n += n
 	_log("eth:decoded", f.data[:n])
 	if err != nil {
-		return triggerError(err)
+		return triggerError(c, err)
 	}
 	if f.IsVLAN() {
 		n, err = c.packet.Read(f.data[14:16])
 		c.n += n
 		if err != nil {
-			return triggerError(err)
+			return triggerError(c, err)
 		}
 	}
 	return nil
@@ -133,9 +134,9 @@ func (f *Ethernet) String() string {
 	if f.IsVLAN() {
 		vlanstr = "(VLAN)"
 	}
-	return "dst: " + f.Destination().String() + ", " +
-		"src: " + f.Source().String() + ", " +
-		"etype: " + string(append(hex.Byte(byte(f.EtherType()>>8)), hex.Byte(byte(f.EtherType()))...)) + vlanstr
+	return strcat("dst: ", f.Destination().String(), ", ",
+		"src: ", f.Source().String(), ", ",
+		"etype: ", bytealg.String(append(hex.Byte(byte(f.EtherType()>>8)), hex.Byte(byte(f.EtherType()))...)), vlanstr)
 }
 
 func (f *Ethernet) Destination() net.HardwareAddr {

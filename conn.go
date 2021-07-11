@@ -3,6 +3,7 @@ package swtch
 import (
 	"time"
 
+	"github.com/soypat/ether-swtch/rfc791"
 	"github.com/soypat/net"
 )
 
@@ -13,9 +14,12 @@ type Conn struct {
 	IPv4     *IPv4
 	TCP      *TCP
 
-	timeout time.Duration
-	start   Trigger
-	n       uint16
+	// checksum facilities stored in struct to avoid heap allocations.
+	checksum rfc791.Checksum
+	timeout  time.Duration
+	start    Trigger
+	// Packet length counter and auxiliary counter
+	n, auxn uint16
 	// minimum packet length. will pad extra
 	minPlen uint16
 	read    bool
@@ -43,6 +47,33 @@ func NewTCPConn(rw Datagrammer, payload Frame, timeout time.Duration, MAC net.Ha
 	}
 	conn.conn = rw
 	conn.TCP.PseudoHeaderInfo = conn.IPv4
+	conn.TCP.encoders[0] = conn.TCP.encodePseudo
+	conn.TCP.encoders[1] = conn.TCP.encodeHeader
+	conn.TCP.encoders[2] = conn.TCP.encodeOptions
+	conn.TCP.encoders[3] = conn.TCP.encodeFramer
+	return conn
+}
+
+func newTCPconn(rw Datagrammer, eth *Ethernet, ip *IPv4, arp *ARPv4, tcp *TCP, payload Frame,
+	timeout time.Duration, MAC net.HardwareAddr, IP net.IP, port uint16) Conn {
+	conn := Conn{
+		macAddr:  MAC,
+		ipAddr:   IP,
+		port:     port,
+		Ethernet: eth,
+		IPv4:     ip,
+		ARPv4:    arp,
+		TCP:      tcp,
+		start:    tcpSetCtl, // TCPConn commanded by ethernet frames as data-link layer
+		timeout:  timeout,
+	}
+	conn.TCP.SubFrame = payload
+	conn.conn = rw
+	conn.TCP.PseudoHeaderInfo = conn.IPv4
+	conn.TCP.encoders[0] = conn.TCP.encodePseudo
+	conn.TCP.encoders[1] = conn.TCP.encodeHeader
+	conn.TCP.encoders[2] = conn.TCP.encodeOptions
+	conn.TCP.encoders[3] = conn.TCP.encodeFramer
 	return conn
 }
 
@@ -82,12 +113,13 @@ func (c *Conn) runIO() error {
 	}
 	// End of write tasks
 	if !c.read {
-		if c.err == nil && c.n < c.minPlen {
+		// Pad with ARP bytes (or any available)
+		for c.err == nil && c.n < c.minPlen {
 			_log("runIO:padding")
-			n, err := c.conn.Write(make([]byte, c.minPlen-c.n))
-			c.n += n
-			if err != nil {
-				return err
+			c.auxn, c.err = c.conn.Write(c.ARPv4[:min(len(c.ARPv4), int(c.minPlen-c.n))])
+			c.n += c.auxn
+			if c.err != nil {
+				return c.err
 			}
 		}
 		_log("runIO:FLUSH\n")
@@ -121,9 +153,15 @@ func (c *Conn) Reset() (err error) {
 	return err
 }
 
-func triggerError(err error) Trigger {
-	return func(c *Conn) Trigger {
-		c.err = err
-		return nil
+//go:inline
+func triggerError(c *Conn, err error) Trigger {
+	c.err = err
+	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
 	}
+	return b
 }
