@@ -4,7 +4,7 @@ Low level Ethernet/IP/TCP/HTTP stack marshaller/unmarshaller for use in tiny pla
 
 *This is a work in progress. The API is subject to change.*
 
-Below is an example of an HTTP server for the ENC28J60 integrated circuit using TinyGo. Works on the Arduino Mega 2560.
+Below is an example of an HTTP server for the ENC28J60 integrated circuit using TinyGo. Works on the Arduino Mega 2560. Use build tag `-tags=noheap` to reduce heap allocations.
 ```go
 package main
 
@@ -44,3 +44,10 @@ func printNonNilErr(err error) {
 	}
 }
 ```
+
+With `noheap` build tag enabled the above program consumes the following memory
+```
+   code    data     bss |   flash     ram
+  22278     765     856 |   23043    1621
+```
+The program should be small enough to run on the Arduino UNO as well (2k sram, 32k flash).

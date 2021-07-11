@@ -34,24 +34,8 @@ type Conn struct {
 type Trigger func(c *Conn) Trigger
 
 func NewTCPConn(rw Datagrammer, payload Frame, timeout time.Duration, MAC net.HardwareAddr, IP net.IP, port uint16) *Conn {
-	conn := &Conn{
-		macAddr:  MAC,
-		ipAddr:   IP,
-		port:     port,
-		Ethernet: new(Ethernet),
-		IPv4:     new(IPv4),
-		ARPv4:    new(ARPv4),
-		TCP:      &TCP{SubFrame: payload},
-		start:    tcpSetCtl, // TCPConn commanded by ethernet frames as data-link layer
-		timeout:  timeout,
-	}
-	conn.conn = rw
-	conn.TCP.PseudoHeaderInfo = conn.IPv4
-	conn.TCP.encoders[0] = conn.TCP.encodePseudo
-	conn.TCP.encoders[1] = conn.TCP.encodeHeader
-	conn.TCP.encoders[2] = conn.TCP.encodeOptions
-	conn.TCP.encoders[3] = conn.TCP.encodeFramer
-	return conn
+	conn := newTCPconn(rw, new(Ethernet), new(IPv4), new(ARPv4), new(TCP), payload, timeout, MAC, IP, port)
+	return &conn
 }
 
 func newTCPconn(rw Datagrammer, eth *Ethernet, ip *IPv4, arp *ARPv4, tcp *TCP, payload Frame,

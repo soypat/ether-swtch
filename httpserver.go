@@ -15,7 +15,9 @@ var (
 	httpserverARPFrame  ARPv4
 )
 
-// Not safe for multiple instantiations.
+// HTTPListenAndServe spins up a blocking HTTP server on port 80.
+//
+// Not safe for multiple instantiations on same device. Concurrent use not tested.
 func HTTPListenAndServe(dg Datagrammer, mac net.HardwareAddr, IPAddr net.IP, timeout time.Duration, handler func(URL []byte) (response []byte), errhandler func(error)) {
 	var count uint
 	var httpf *HTTP = &httpserverHTTPFrame
@@ -35,6 +37,7 @@ func HTTPListenAndServe(dg Datagrammer, mac net.HardwareAddr, IPAddr net.IP, tim
 	arpf := conn.ARPv4
 	tcpSet := tcpf.Set()
 	var err error
+	var deadline time.Time
 
 START: // START begins search for a new TCP connection.
 	for {
@@ -47,7 +50,6 @@ START: // START begins search for a new TCP connection.
 			errhandler(err)
 			continue START
 		}
-
 		if eth.EtherType() == EtherTypeARP && bytes.Equal(arpf.ProtoTarget(), IPAddr) {
 			// ARP Packet control.
 			_log("=======etherType ARPv4")
@@ -64,9 +66,12 @@ START: // START begins search for a new TCP connection.
 				!tcpf.HasFlags(TCPHEADER_FLAG_SYN) { // Must be SYN packet to start TCP handshake
 				continue START
 			}
+			// Create deadline for TCP transaction finish
+			deadline = time.Now().Add(timeout)
 
 			_log("\n=======ipv4 dst here")
-			// conn takes care of replying
+			// conn takes care of SYN response. Rest of logic is inside HTTPServer
+			// TODO standarize where logic lives HTTPServer vs. tcpCtl
 			err = conn.SendResponse()
 			if err != nil {
 				errhandler(err)
@@ -81,7 +86,7 @@ START: // START begins search for a new TCP connection.
 
 				// Get incoming ACK and skip it (len=0) and get HTTP request
 				err = conn.Decode()
-				if err != nil && !IsEOF(err) {
+				if (err != nil && !IsEOF(err)) || time.Since(deadline) > 0 {
 					errhandler(err)
 					continue START
 				}
@@ -124,7 +129,7 @@ START: // START begins search for a new TCP connection.
 			tcpSet.ClearFlags(TCPHEADER_FLAG_FIN)
 			for tcpf.Seq() != SEQ+serverHTTPLen+2 || tcpf.Flags() != TCPHEADER_FLAG_FIN|TCPHEADER_FLAG_ACK {
 				err = conn.Decode()
-				if err != nil && !IsEOF(err) {
+				if (err != nil && !IsEOF(err)) || time.Since(deadline) > 0 {
 					errhandler(err)
 					continue START
 				}
