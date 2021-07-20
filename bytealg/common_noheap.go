@@ -54,13 +54,10 @@ type _bytes struct {
 
 // Convert a string to a []byte slice.
 // From tinygo implementation.
+//go:inline
 func stringToBytes(x string) (slice []byte) {
-	tmp := (*_bytes)(unsafe.Pointer(&slice))
-	sptr := (*_string)(unsafe.Pointer(&x))
-	tmp.ptr = sptr.ptr
-	tmp.length = sptr.length
-	tmp.cap = sptr.length
-	return
+	s := (*_string)(unsafe.Pointer(&x))
+	return *(*[]byte)(unsafe.Pointer(&_bytes{ptr: s.ptr, length: s.length, cap: s.length}))
 }
 
 // Create a string from a []byte slice.

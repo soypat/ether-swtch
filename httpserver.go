@@ -86,7 +86,7 @@ START: // START begins search for a new TCP connection.
 
 				// Get incoming ACK and skip it (len=0) and get HTTP request
 				err = conn.Decode()
-				if (err != nil && !IsEOF(err)) || time.Since(deadline) > 0 {
+				if err != nil && !IsEOF(err) || time.Since(deadline) > 0 {
 					errhandler(err)
 					continue START
 				}
@@ -129,7 +129,7 @@ START: // START begins search for a new TCP connection.
 			tcpSet.ClearFlags(TCPHEADER_FLAG_FIN)
 			for tcpf.Seq() != SEQ+serverHTTPLen+2 || tcpf.Flags() != TCPHEADER_FLAG_FIN|TCPHEADER_FLAG_ACK {
 				err = conn.Decode()
-				if (err != nil && !IsEOF(err)) || time.Since(deadline) > 0 {
+				if err != nil && !IsEOF(err) || time.Since(deadline) > 0 {
 					errhandler(err)
 					continue START
 				}
