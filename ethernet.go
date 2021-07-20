@@ -101,6 +101,7 @@ var (
 	// Broadcast is a special hardware address which indicates a Frame should
 	// be sent to every device on a given LAN segment.
 	Broadcast = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	None      = net.HardwareAddr{0, 0, 0, 0, 0, 0}
 )
 
 // An EtherType is a value used to identify an upper layer protocol

@@ -83,7 +83,6 @@ START: // START begins search for a new TCP connection.
 			_log("\n=======loop http decode")
 			// while not the packet we are looking for keep going.
 			for tcpf.Seq() != SEQ+1 || len(httpf.URL) == 0 || httpf.Method == httpUNDEFINED || tcpf.HasFlags(TCPHEADER_FLAG_SYN) || tcpf.Flags() == TCPHEADER_FLAG_ACK {
-
 				// Get incoming ACK and skip it (len=0) and get HTTP request
 				err = conn.Decode()
 				if err != nil && !IsEOF(err) || time.Since(deadline) > 0 {
@@ -91,6 +90,7 @@ START: // START begins search for a new TCP connection.
 					continue START
 				}
 				_log(strcat("[ACK] loop expecting ", u32toa(SEQ+1), " got ", u32toa(tcpf.Seq())))
+				spinLoopContent()
 			}
 			_logStringer("HTTP:", httpf)
 
@@ -134,6 +134,7 @@ START: // START begins search for a new TCP connection.
 					continue START
 				}
 				_log(strcat("[FIN] loop expecting seq ", u32toa(SEQ+serverHTTPLen+2), " got ", u32toa(tcpf.Seq()), "\n"))
+				spinLoopContent()
 			}
 
 			tcpSet.Flags(TCPHEADER_FLAG_ACK)
@@ -146,5 +147,6 @@ START: // START begins search for a new TCP connection.
 			_logStringer("\nEnd TCP handshake with :", tcpf)
 			count++
 		}
+		spinLoopContent()
 	}
 }

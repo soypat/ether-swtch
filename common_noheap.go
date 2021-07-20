@@ -2,7 +2,10 @@
 
 package swtch
 
-import "github.com/soypat/ether-swtch/bytealg"
+import (
+	"github.com/soypat/ether-swtch/bytealg"
+	"time"
+)
 
 func IsEOF(err error) bool {
 	if err != nil {
@@ -43,4 +46,8 @@ func uitoa(val uint) string {
 
 func strcat(s ...string) string {
 	return ""
+}
+
+func spinLoopContent() {
+	time.Sleep(10 * time.Millisecond)
 }

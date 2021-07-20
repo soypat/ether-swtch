@@ -144,10 +144,11 @@ func tcpSet(c *Conn) Trigger {
 	}
 	// First TCP packet received clause
 	if tcp.HasFlags(TCPHEADER_FLAG_SYN) {
-		const startSeq = 2560
+		// const startSeq = 2560
 		_log("tcpSet [SYN,ACK]")
 		// adds some entropy to sequence number so for loops don't get false positive packets
-		Set.Seq(startSeq) // TODO: add entropy with when package is tested: Set.Seq(uint32(0x0062&tcp.PseudoHeaderInfo.ID()) + uint32(0x00af&tcp.Checksum()))
+		var rand uint32 = uint32(0x0062&tcp.PseudoHeaderInfo.ID()) + uint32(0x00af&tcp.Checksum())
+		Set.Seq(rand)
 		Set.UrgentPtr(0)
 		Set.Flags(TCPHEADER_FLAG_ACK | TCPHEADER_FLAG_SYN)
 		// set Maximum segment size (option 0x02) length 4 (0x04) to 1280 (0x0500)

@@ -6,6 +6,7 @@ package swtch
 import (
 	"fmt"
 	"io"
+	"time"
 )
 
 func IsEOF(err error) bool {
@@ -31,4 +32,8 @@ func strcat(s ...string) (out string) {
 		out += s[i]
 	}
 	return out
+}
+
+func spinLoopContent() {
+	time.Sleep(time.Microsecond)
 }

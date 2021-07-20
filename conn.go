@@ -67,7 +67,7 @@ func (c *Conn) SendResponse() error {
 	return c.runIO()
 }
 
-func (c *Conn) Decode() error {
+func (c *Conn) Decode() (err error) {
 	_log("decode")
 	if c.packet != nil {
 		// Here we discard any unread data before procuring a new packet.
@@ -77,12 +77,10 @@ func (c *Conn) Decode() error {
 		}
 	}
 	c.read = true
-	r, err := c.conn.NextPacket(time.Now().Add(c.timeout))
+	c.packet, err = c.conn.NextPacket(time.Now().Add(c.timeout))
 	if err != nil {
 		return err
 	}
-
-	c.packet = r
 	return c.runIO()
 }
 
@@ -132,7 +130,12 @@ func (c *Conn) Reset() (err error) {
 	}
 	if c.Ethernet != nil {
 		set := c.Ethernet.Set()
+		set.EtherType(0)
 		set.Destination(Broadcast)
+	}
+	if c.ARPv4 != nil {
+		set := c.ARPv4.Set()
+		set.HWTarget(None)
 	}
 	return err
 }
