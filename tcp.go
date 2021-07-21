@@ -321,6 +321,14 @@ type TCPSet struct {
 	tcp *TCP
 }
 
+func (set TCPSet) Reset() (err error) {
+	set.tcp.Header = [20]byte{}
+	if set.tcp.SubFrame != nil {
+		err = set.tcp.SubFrame.Reset()
+	}
+	return err
+}
+
 func (set TCPSet) Source(p uint16)      { binary.BigEndian.PutUint16(set.tcp.Header[0:2], p) }
 func (set TCPSet) Destination(p uint16) { binary.BigEndian.PutUint16(set.tcp.Header[2:4], p) }
 func (set TCPSet) Seq(s uint32)         { binary.BigEndian.PutUint32(set.tcp.Header[4:8], s) }

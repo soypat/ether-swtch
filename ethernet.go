@@ -182,9 +182,13 @@ type EthernetSet struct {
 	eth *Ethernet
 }
 
-func (e *EthernetSet) Destination(MAC net.HardwareAddr) { copy(e.eth.Destination(), MAC) }
-func (e *EthernetSet) Source(MAC net.HardwareAddr)      { copy(e.eth.Source(), MAC) }
+func (e EthernetSet) Reset() {
+	e.eth.data = [16]byte{}
+}
 
-func (e *EthernetSet) EtherType(et EtherType) {
+func (e EthernetSet) Destination(MAC net.HardwareAddr) { copy(e.eth.Destination(), MAC) }
+func (e EthernetSet) Source(MAC net.HardwareAddr)      { copy(e.eth.Source(), MAC) }
+
+func (e EthernetSet) EtherType(et EtherType) {
 	binary.BigEndian.PutUint16(e.eth.data[12:14], uint16(et))
 }

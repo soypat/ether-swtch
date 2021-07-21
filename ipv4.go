@@ -95,8 +95,6 @@ const (
 // Set Plen on every response.
 type IPv4 struct {
 	data [20]byte
-	// sliced on initialization since slicing during run has some overhead
-	pseudodata []byte
 }
 
 func (ip *IPv4) Version() uint8 { return ip.data[0] }
@@ -136,6 +134,10 @@ func (ip *IPv4) Set() IPv4Set { return IPv4Set{ip} }
 // IPv4Set is a helper struct to set fields of IPv4 data buffer.
 type IPv4Set struct {
 	ip *IPv4
+}
+
+func (s IPv4Set) Reset() {
+	s.ip.data = [20]byte{} // may optimize to memset. up to compiler.
 }
 
 func (s IPv4Set) Version(v uint8)         { s.ip.data[0] = v }

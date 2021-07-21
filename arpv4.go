@@ -110,6 +110,10 @@ type ARPv4Set struct {
 	ARP *ARPv4
 }
 
+func (a ARPv4Set) Reset() {
+	*(a.ARP) = ARPv4{}
+}
+
 func (a *ARPv4Set) HWTarget(MAC net.HardwareAddr) {
 	copy(a.ARP[18:24], MAC)
 }

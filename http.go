@@ -80,6 +80,7 @@ func (h *HTTP) FrameLength() uint16 {
 
 func (h *HTTP) Reset() error {
 	h.Body = nil
+	h.Method = httpUNDEFINED
 	return nil
 }
 

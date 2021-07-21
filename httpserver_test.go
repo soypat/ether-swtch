@@ -26,9 +26,8 @@ func BenchmarkHTTPServer(b *testing.B) {
 }
 
 func TestHTTPServer(t *testing.T) {
-	t.Parallel()
-	const N = 100
-	timeout := time.Hour // long timeout given testing environment (for debugging)
+	const N = 1
+	timeout := time.Millisecond // long timeout given testing environment (for debugging)
 	var (
 		mac         = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
 		httpContent = defaultOKHeader + "Hello World!"
@@ -36,7 +35,7 @@ func TestHTTPServer(t *testing.T) {
 	dg := newTestDatagrammer(2)
 	go HTTPListenAndServe(dg, mac, net.IP{192, 168, 1, 5}, timeout, func(URL []byte) (response []byte) {
 		return []byte(httpContent)
-	}, func(e error) { t.Error(e) })
+	}, func(e error) { panic(e) })
 	for i := 0; i < N; i++ {
 		testInOutHTTPServer(t, dg, httpContent)
 	}
@@ -134,6 +133,7 @@ func testInOutHTTPServer(t testing.TB, dg *TestDatagrammer, httpExpectedContent 
 
 		// send packets
 		_, _, tcpGET, httpGET := parseHTTPPacket(pGET)
+		tcpGET.Set().Ack(SEQ + 1)                 // overwrite with expected ACK number
 		clientHTTPLen = uint32(len(httpGET.Body)) // Client httpLen
 		dg.in(pAck, pGET)
 		_, _ = tcpGET, httpGET
