@@ -3,9 +3,11 @@ package swtch
 import (
 	"bytes"
 	"fmt"
+
+	"github.com/soypat/ether-swtch/grams"
 )
 
-func assertEqualEthernet(a, b *Ethernet) (errs []error) {
+func assertEqualEthernet(a, b *grams.Ethernet) (errs []error) {
 	if !bytes.Equal(a.Destination(), b.Destination()) {
 		errs = append(errs, fmt.Errorf("destination MAC %s != %s", a.Destination(), b.Destination()))
 	}
@@ -21,7 +23,7 @@ func assertEqualEthernet(a, b *Ethernet) (errs []error) {
 	return errs
 }
 
-func assertEqualIPv4(a, b *IPv4) (errs []error) {
+func assertEqualIPv4(a, b *grams.IPv4) (errs []error) {
 	if a.Version() != b.Version() {
 		errs = append(errs, fmt.Errorf("version %#x != %#x", a.Version(), b.Version()))
 	}
@@ -49,7 +51,7 @@ func assertEqualIPv4(a, b *IPv4) (errs []error) {
 	return errs
 }
 
-func assertEqualTCP(a, b *TCP) (errs []error) {
+func assertEqualTCP(a, b *grams.TCP) (errs []error) {
 	if a.Source() != b.Source() {
 		errs = append(errs, fmt.Errorf("source port %d != %d", a.Source(), b.Source()))
 	}

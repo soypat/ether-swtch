@@ -3,11 +3,12 @@ package swtch
 import (
 	"testing"
 
+	"github.com/soypat/ether-swtch/grams"
 	"github.com/soypat/ether-swtch/hex"
 )
 
 func TestTCPFlags(t *testing.T) {
-	var flagfield uint16 = TCPHEADER_FLAG_SYN | TCPHEADER_FLAG_ACK
+	var flagfield uint16 = grams.TCPHEADER_FLAG_SYN | grams.TCPHEADER_FLAG_ACK
 	p0in := &packet{dataOnWire: hex.Decode([]byte(`de ad be ef fe ff 28 d2 44 9a 2f f3 08 00 45 00
 	00 3c 2c da 40 00 40 06 8a 1c c0 a8 01 70 c0 a8
 	01 05 e6 28 00 50 3e ab 64 f7 00 00 00 00 a0 02
@@ -28,7 +29,7 @@ func TestTCPFlags(t *testing.T) {
 }
 
 func TestTCPOffset(t *testing.T) {
-	tcp := &TCP{}
+	tcp := &grams.TCP{}
 	set := tcp.Set()
 	for _, v := range []uint8{1, 0, 2, 3, 4, 5, 0, 6, 7, 0, 8, 9, 10, 15, 0, 14} {
 		set.Offset(v)

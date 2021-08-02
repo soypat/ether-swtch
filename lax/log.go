@@ -1,6 +1,6 @@
 // +build !noheap
 
-package swtch
+package lax
 
 import "github.com/soypat/ether-swtch/hex"
 
@@ -12,10 +12,10 @@ var (
 )
 
 // debug serial print. If SDB is set to false then it is not compiled unless compiler cannot determine
-// SDB does not change
-func _log(msg string, datas ...[]byte) {
+// SDB does not change. Datas are logged as hex string.
+func Log(msg string, datas ...[]byte) {
 	if SDB {
-		print(strcat("swtch:", msg))
+		print(Strcat("swtch:", msg))
 		if !SDBTrace {
 			for d := range datas {
 				print(" 0x")

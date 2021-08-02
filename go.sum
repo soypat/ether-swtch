@@ -1,4 +1,8 @@
-github.com/soypat/net v0.2.0 h1:y20X7fJGyr/4fT/RvfDysA6S44yF8GMSx/yQehhWxfk=
-github.com/soypat/net v0.2.0/go.mod h1:hd58cJl8uqwu3q+9Q6/fG0WKW+YEdx3E9puO/GLk6e0=
-github.com/soypat/net v0.2.2 h1:i9AfaFeHoKjL5bPvYs5wYIU/2aU+MSs+3YJ6LWn1ZLs=
+github.com/eclipse/paho.mqtt.golang v1.2.0/go.mod h1:H9keYFcgq3Qr5OUJm/JZI/i6U7joQ8SYLhZwfeOo6Ts=
+github.com/frankban/quicktest v1.10.2/go.mod h1:K+q6oSqb0W0Ininfk863uOk1lMy69l/P6txr3mVT54s=
+github.com/google/go-cmp v0.5.2/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
+github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
+github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
+github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/soypat/net v0.2.2/go.mod h1:cxcMlZM5FCxUfb5k1vMWwLN1/Woxq3cdux3rT2/PCpY=
+golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=

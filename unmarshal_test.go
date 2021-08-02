@@ -10,12 +10,12 @@ type packet struct {
 	ptr        int
 }
 
-func (p *packet) Read(b []byte) (n uint16, err error) {
+func (p *packet) Read(b []byte) (n int, err error) {
 	if p.ptr == len(p.dataOnWire) {
 		return 0, io.EOF
 	}
-	n += uint16(copy(b, p.dataOnWire[p.ptr:]))
-	p.ptr += int(n)
+	n += copy(b, p.dataOnWire[p.ptr:])
+	p.ptr += n
 	if p.ptr == len(p.dataOnWire) {
 		return n, io.EOF
 	}

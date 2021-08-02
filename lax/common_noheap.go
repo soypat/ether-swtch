@@ -1,6 +1,6 @@
 // +build noheap
 
-package swtch
+package lax
 
 import (
 	"github.com/soypat/ether-swtch/bytealg"
@@ -14,13 +14,13 @@ func IsEOF(err error) bool {
 	return false
 }
 
-func u32toa(val uint32) string {
+func U32toa(val uint32) string {
 	return uitoa(uint(val))
 }
 
 // logging is no-op in no heap
-func _log(string, ...[]byte)           {}
-func _logStringer(string, interface{}) {}
+func Log(string, ...[]byte)           {}
+func LogStringer(string, interface{}) {}
 
 var uibuf [20]byte // big enough for 64bit value base 10
 
@@ -44,7 +44,7 @@ func uitoa(val uint) string {
 	return bytealg.String(uibuf[i:])
 }
 
-func strcat(s ...string) string {
+func Strcat(s ...string) string {
 	return ""
 }
 

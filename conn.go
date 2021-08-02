@@ -3,71 +3,69 @@ package swtch
 import (
 	"time"
 
+	"net"
+
+	"github.com/soypat/ether-swtch/grams"
+	"github.com/soypat/ether-swtch/lax"
 	"github.com/soypat/ether-swtch/rfc791"
-	"github.com/soypat/net"
+	"tinygo.org/x/drivers"
 )
 
-// Wrapper for a Conn
-type Conn struct {
-	Ethernet *Ethernet
-	ARPv4    *ARPv4
-	IPv4     *IPv4
-	TCP      *TCP
+var _log = lax.Log
+
+// Wrapper for a TCPConn
+type TCPConn struct {
+	Ethernet grams.Ethernet
+	ARPv4    grams.ARPv4
+	IPv4     grams.IPv4
+	TCP      grams.TCP
 
 	// checksum facilities stored in struct to avoid heap allocations.
 	checksum rfc791.Checksum
 	timeout  time.Duration
 	start    Trigger
 	// Packet length counter and auxiliary counter
-	n, auxn uint16
+	n, auxn int
 	// minimum packet length. will pad extra
-	minPlen uint16
+	minPlen int
 	read    bool
-	conn    Datagrammer
-	packet  Reader
+	conn    drivers.Datagrammer
+	packet  drivers.Packet
 	macAddr net.HardwareAddr
 	ipAddr  net.IP
 	port    uint16
 	err     error
 }
 
-type Trigger func(c *Conn) Trigger
+type Trigger func(c *TCPConn) Trigger
 
-func NewTCPConn(rw Datagrammer, payload Frame, timeout time.Duration, MAC net.HardwareAddr, IP net.IP, port uint16) *Conn {
-	conn := newTCPconn(rw, new(Ethernet), new(IPv4), new(ARPv4), new(TCP), payload, timeout, MAC, IP, port)
+func NewTCPConn(rw drivers.Datagrammer, payload grams.Frame, timeout time.Duration, MAC net.HardwareAddr, IP net.IP, port uint16) *TCPConn {
+	conn := newTCPconn(rw, payload, timeout, MAC, IP, port)
 	return &conn
 }
 
-func newTCPconn(rw Datagrammer, eth *Ethernet, ip *IPv4, arp *ARPv4, tcp *TCP, payload Frame,
-	timeout time.Duration, MAC net.HardwareAddr, IP net.IP, port uint16) Conn {
-	conn := Conn{
-		macAddr:  MAC,
-		ipAddr:   IP,
-		port:     port,
-		Ethernet: eth,
-		IPv4:     ip,
-		ARPv4:    arp,
-		TCP:      tcp,
-		start:    tcpSetCtl, // TCPConn commanded by ethernet frames as data-link layer
-		timeout:  timeout,
+func newTCPconn(rw drivers.Datagrammer, payload grams.Frame, timeout time.Duration, MAC net.HardwareAddr, IP net.IP, port uint16) TCPConn {
+	conn := TCPConn{
+		macAddr: MAC,
+		ipAddr:  IP,
+		port:    port,
+		start:   tcpSetCtl, // TCPConn commanded by ethernet frames as data-link layer
+		timeout: timeout,
 	}
 	conn.TCP.SubFrame = payload
 	conn.conn = rw
-	conn.TCP.PseudoHeaderInfo = conn.IPv4
-	conn.TCP.encoders[0] = conn.TCP.encodePseudo
-	conn.TCP.encoders[1] = conn.TCP.encodeHeader
-	conn.TCP.encoders[2] = conn.TCP.encodeOptions
-	conn.TCP.encoders[3] = conn.TCP.encodeFramer
+	conn.TCP.Init(&conn.IPv4)
+
 	return conn
 }
 
-func (c *Conn) SendResponse() error {
+func (c *TCPConn) SendResponse() error {
 	_log("sendResp")
 	c.read = false
 	return c.runIO()
 }
 
-func (c *Conn) Decode() (err error) {
+func (c *TCPConn) Decode() (err error) {
 	_log("decode")
 	if c.packet != nil {
 		// Here we discard any unread data before procuring a new packet.
@@ -84,7 +82,7 @@ func (c *Conn) Decode() (err error) {
 	return c.runIO()
 }
 
-func (c *Conn) runIO() error {
+func (c *TCPConn) runIO() error {
 	_log("runIO")
 	c.err = nil // reset error
 	c.n = 0
@@ -110,24 +108,16 @@ func (c *Conn) runIO() error {
 	return c.err
 }
 
-func (c *Conn) Reset() (err error) {
-	if c.TCP != nil {
-		err = c.TCP.Set().Reset()
-	}
-	if c.IPv4 != nil {
-		c.IPv4.Set().Reset()
-	}
-	if c.Ethernet != nil {
-		c.Ethernet.Set().Reset()
-	}
-	if c.ARPv4 != nil {
-		c.ARPv4.Set().Reset()
-	}
+func (c *TCPConn) Reset() (err error) {
+	err = c.TCP.Set().Reset()
+	c.IPv4.Set().Reset()
+	c.Ethernet.Set().Reset()
+	c.ARPv4.Set().Reset()
 	return err
 }
 
 //go:inline
-func triggerError(c *Conn, err error) Trigger {
+func triggerError(c *TCPConn, err error) Trigger {
 	c.err = err
 	return nil
 }

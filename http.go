@@ -1,9 +1,11 @@
 package swtch
 
 import (
-	"github.com/soypat/net"
+	"io"
+	"net"
 
 	"github.com/soypat/ether-swtch/bytealg"
+	"github.com/soypat/ether-swtch/lax"
 )
 
 // HTTP unmarshal http requests and marshal body data
@@ -34,10 +36,10 @@ const (
 
 var spaceByte = []byte{' '}
 
-func (h *HTTP) Decode(r Reader) (n uint16, err error) {
+func (h *HTTP) Decode(r io.Reader) (n int, err error) {
 	n, err = r.Read(h.buff[:])
-	_log(strcat("http decode: ", string(h.buff[:n])))
-	if err != nil && !IsEOF(err) {
+	_log(lax.Strcat("http decode: ", string(h.buff[:n])))
+	if err != nil && !lax.IsEOF(err) {
 		return n, err
 	}
 	if n <= 6 {
@@ -66,7 +68,7 @@ func (h *HTTP) Decode(r Reader) (n uint16, err error) {
 	return n, err
 }
 
-func (h *HTTP) Encode(w Writer) (n uint16, err error) {
+func (h *HTTP) Encode(w io.Writer) (n int, err error) {
 	_log("http:send", h.buff[:n])
 	if len(h.Body) == 0 {
 		return 0, nil
@@ -92,7 +94,7 @@ func (h *HTTP) String() string {
 	if h.URL == nil {
 		return "undefined http request"
 	}
-	return strcat(h.Method.String(), " @ ", bytealg.String(h.URL))
+	return lax.Strcat(h.Method.String(), " @ ", bytealg.String(h.URL))
 }
 
 func (h HTTPMethod) String() (s string) {

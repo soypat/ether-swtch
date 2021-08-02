@@ -4,10 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soypat/net"
+	"net"
 
 	"github.com/soypat/ether-swtch/bytealg"
+	"github.com/soypat/ether-swtch/grams"
 	"github.com/soypat/ether-swtch/hex"
+	"github.com/soypat/ether-swtch/lax"
 )
 
 func TestUnmarshalHTTPGetRequest(t *testing.T) {
@@ -23,7 +25,7 @@ func TestUnmarshalHTTPGetRequest(t *testing.T) {
 	http := &HTTP{}
 	conn := NewTCPConn(rwconn, http, time.Second, mac, ip, 80)
 	err := conn.Decode()
-	if !IsEOF(err) && err != nil {
+	if !lax.IsEOF(err) && err != nil {
 		t.Errorf("expected EOF or nil, got %q", err)
 	}
 	// Ethernet, IP and TCP tests for this same packet are in tcp_test.go
@@ -50,7 +52,7 @@ func TestHTTPResponse(t *testing.T) {
 	http := &HTTP{}
 	rxconn := NewTCPConn(rwconn, http, time.Second, mac, ip, 80)
 	err := rxconn.Decode()
-	if !IsEOF(err) && err != nil {
+	if !lax.IsEOF(err) && err != nil {
 		t.Errorf("expected EOF or nil, got %q", err)
 	}
 	prevAck := rxconn.TCP.Ack()
@@ -62,7 +64,7 @@ func TestHTTPResponse(t *testing.T) {
 
 	http.Body = append([]byte(defaultOKHeader), []byte("Hello World!")...)
 	httplen := http.FrameLength()
-	rxconn.TCP.Set().Flags(TCPHEADER_FLAG_ACK | TCPHEADER_FLAG_FIN | TCPHEADER_FLAG_PSH)
+	rxconn.TCP.Set().Flags(grams.TCPHEADER_FLAG_ACK | grams.TCPHEADER_FLAG_FIN | grams.TCPHEADER_FLAG_PSH)
 	// Save the HTTP request to a buffer
 	err = rxconn.SendResponse()
 	if err != nil {
@@ -78,7 +80,7 @@ func TestHTTPResponse(t *testing.T) {
 	http = &HTTP{}
 	txconn := NewTCPConn(rwconn, http, time.Second, mac, ip, 80)
 	err = txconn.Decode()
-	if !IsEOF(err) && err != nil {
+	if !lax.IsEOF(err) && err != nil {
 		t.Errorf("expected io.EOF or nil when parsing http with no HTTP frame err, got %q", err)
 	}
 	// The data sent over wire is what we sent out, which inverts the Ack and Seq. We reinvert it
@@ -89,7 +91,7 @@ func TestHTTPResponse(t *testing.T) {
 	localAck := txconn.TCP.Seq()
 	set.Ack(localAck)
 	set.Seq(localSeq)
-	if txconn.TCP.Flags() != TCPHEADER_FLAG_FIN|TCPHEADER_FLAG_ACK|TCPHEADER_FLAG_PSH {
+	if txconn.TCP.Flags() != grams.TCPHEADER_FLAG_FIN|grams.TCPHEADER_FLAG_ACK|grams.TCPHEADER_FLAG_PSH {
 		t.Errorf("expected [FIN,ACK,PSH] set in response. got %v", txconn.TCP.StringFlags())
 	}
 	expectAck := uint32(httplen) + prevAck

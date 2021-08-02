@@ -32,23 +32,23 @@ type Checksum struct {
 	needsPad bool
 }
 
-func (c *Checksum) Write(buff []byte) (n uint16, err error) {
+func (c *Checksum) Write(buff []byte) (n int, err error) {
 	// automatic padding of uneven data
 	if c.needsPad {
 		c.sum += uint32(c.excedent)<<8 + uint32(buff[0])
 		buff = buff[1:]
 		c.needsPad = false
 	}
-	n = uint16(len(buff) / 2)
+	n = len(buff) / 2
 	if len(buff)%2 != 0 {
 		c.excedent = buff[len(buff)-1]
 		buff = buff[:len(buff)-1]
 		c.needsPad = true
 	}
-	for i := uint16(0); i < n; i++ {
+	for i := 0; i < n; i++ {
 		c.sum += uint32(binary.BigEndian.Uint16(buff[i*2 : i*2+2]))
 	}
-	return uint16(len(buff)), nil
+	return len(buff), nil
 }
 
 func (c *Checksum) Sum() uint16 {

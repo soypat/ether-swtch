@@ -1,7 +1,7 @@
 // +build avr
 // +build !noheap
 
-package swtch
+package lax
 
 import (
 	"fmt"
@@ -16,15 +16,15 @@ func IsEOF(err error) bool {
 	return false
 }
 
-func u32toa(u uint32) string {
+func U32toa(u uint32) string {
 	return strconv.Itoa(int(u))
 }
 
-func _logStringer(msg string, s fmt.Stringer) {
-	_log(msg)
+func LogStringer(msg string, s fmt.Stringer) {
+	Log(msg)
 }
 
-func strcat(s ...string) (out string) {
+func Strcat(s ...string) (out string) {
 	if len(s) == 0 {
 		return ""
 	}

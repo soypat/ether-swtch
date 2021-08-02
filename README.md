@@ -9,7 +9,7 @@ Below is an example of an HTTP server for the ENC28J60 integrated circuit using 
 package main
 
 import (
-    "github.com/soypat/net"
+    "net"
 
     swtch "github.com/soypat/ether-swtch"
     "github.com/soypat/ether-swtch/hex"

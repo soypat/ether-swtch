@@ -4,37 +4,33 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/soypat/net"
-)
+	"net"
 
-var (
-	httpserverHTTPFrame HTTP
-	httpserverEthFrame  Ethernet
-	httpserverIPFrame   IPv4
-	httpserverTCPFrame  TCP
-	httpserverARPFrame  ARPv4
+	"github.com/soypat/ether-swtch/grams"
+	"github.com/soypat/ether-swtch/lax"
+	"tinygo.org/x/drivers"
 )
 
 // HTTPListenAndServe spins up a blocking HTTP server on port 80.
 //
 // Not safe for multiple instantiations on same device. Concurrent use not tested.
-func HTTPListenAndServe(dg Datagrammer, mac net.HardwareAddr, IPAddr net.IP, timeout time.Duration, handler func(URL []byte) (response []byte), errhandler func(error)) {
+func HTTPListenAndServe(dg drivers.Datagrammer, mac net.HardwareAddr, IPAddr net.IP, timeout time.Duration, handler func(URL []byte) (response []byte), errhandler func(error)) {
 	var count uint
-	var httpf *HTTP = &httpserverHTTPFrame
-
+	var _http = HTTP{}
+	var httpf = &_http
 	// HTTP/TCP variables
 	var (
 		// HTTPLen variables accumulate total data sent by the client and server
 		clientHTTPLen, serverHTTPLen, ACK, SEQ uint32
 		response                               []byte
 	)
-	conn := newTCPconn(dg, &httpserverEthFrame, &httpserverIPFrame, &httpserverARPFrame, &httpserverTCPFrame, httpf, timeout, mac, IPAddr, 80)
+	conn := newTCPconn(dg, httpf, timeout, mac, IPAddr, 80)
 
 	// declare shorthand frames
-	eth := conn.Ethernet
-	ipf := conn.IPv4
-	tcpf := conn.TCP
-	arpf := conn.ARPv4
+	eth := &conn.Ethernet
+	ipf := &conn.IPv4
+	tcpf := &conn.TCP
+	arpf := &conn.ARPv4
 	tcpSet := tcpf.Set()
 	var err error
 	var deadline time.Time
@@ -46,11 +42,11 @@ START: // START begins search for a new TCP connection.
 			errhandler(err)
 		}
 		err = conn.Decode()
-		if err != nil && !IsEOF(err) {
+		if err != nil && !lax.IsEOF(err) {
 			errhandler(err)
 			continue START
 		}
-		if eth.EtherType() == EtherTypeARP && bytes.Equal(arpf.ProtoTarget(), IPAddr) {
+		if eth.EtherType() == grams.EtherTypeARP && bytes.Equal(arpf.ProtoTarget(), IPAddr) {
 			// ARP Packet control.
 			_log("=======etherType ARPv4")
 			err = conn.SendResponse()
@@ -60,10 +56,10 @@ START: // START begins search for a new TCP connection.
 			}
 			count++
 
-		} else if eth.EtherType() == EtherTypeIPv4 {
+		} else if eth.EtherType() == grams.EtherTypeIPv4 {
 			// TCP Packet control
 			if !bytes.Equal(ipf.Destination(), IPAddr) || !bytes.Equal(eth.Destination(), mac) || // check destination address is ours
-				!tcpf.HasFlags(TCPHEADER_FLAG_SYN) { // Must be SYN packet to start TCP handshake
+				!tcpf.HasFlags(grams.TCPHEADER_FLAG_SYN) { // Must be SYN packet to start TCP handshake
 				continue START
 			}
 			// Create deadline for TCP transaction finish
@@ -82,17 +78,17 @@ START: // START begins search for a new TCP connection.
 
 			_log("\n=======loop http decode")
 			// while not the packet we are looking for keep going.
-			for tcpf.Seq() != SEQ+1 || len(httpf.URL) == 0 || httpf.Method == httpUNDEFINED || tcpf.HasFlags(TCPHEADER_FLAG_SYN) || tcpf.Flags() == TCPHEADER_FLAG_ACK {
+			for tcpf.Seq() != SEQ+1 || len(httpf.URL) == 0 || httpf.Method == httpUNDEFINED || tcpf.HasFlags(grams.TCPHEADER_FLAG_SYN) || tcpf.Flags() == grams.TCPHEADER_FLAG_ACK {
 				// Get incoming ACK and skip it (len=0) and get HTTP request
 				err = conn.Decode()
-				if err != nil && !IsEOF(err) || time.Since(deadline) > 0 {
+				if err != nil && !lax.IsEOF(err) || time.Since(deadline) > 0 {
 					errhandler(err)
 					continue START
 				}
-				_log(strcat("[ACK] loop expecting ", u32toa(SEQ+1), " got ", u32toa(tcpf.Seq())))
+				_log(lax.Strcat("[ACK] loop expecting ", lax.U32toa(SEQ+1), " got ", lax.U32toa(tcpf.Seq())))
 				spinLoopContent()
 			}
-			_logStringer("HTTP:", httpf)
+			lax.LogStringer("HTTP:", httpf)
 
 			// Send TCP ACK first and save response
 			{
@@ -106,7 +102,7 @@ START: // START begins search for a new TCP connection.
 				httpf.Body = nil
 				tcpSet.Ack(ACK + clientHTTPLen + 1)
 				tcpSet.Seq(SEQ + 1)
-				tcpSet.Flags(TCPHEADER_FLAG_ACK)
+				tcpSet.Flags(grams.TCPHEADER_FLAG_ACK)
 				err = conn.SendResponse()
 				if err != nil {
 					errhandler(err)
@@ -116,7 +112,7 @@ START: // START begins search for a new TCP connection.
 
 			// Send FIN|PSH|ACK with HTTP response to client
 			{
-				tcpf.Set().Flags(TCPHEADER_FLAG_FIN | TCPHEADER_FLAG_PSH | TCPHEADER_FLAG_ACK)
+				tcpf.Set().Flags(grams.TCPHEADER_FLAG_FIN | grams.TCPHEADER_FLAG_PSH | grams.TCPHEADER_FLAG_ACK)
 				httpf.Body = response
 				err = conn.SendResponse()
 				if err != nil {
@@ -126,27 +122,31 @@ START: // START begins search for a new TCP connection.
 			}
 
 			// clear current flags to prevent false positive. We seek to ACK the FIN|ACK segment.
-			tcpSet.ClearFlags(TCPHEADER_FLAG_FIN)
-			for tcpf.Seq() != SEQ+serverHTTPLen+2 || tcpf.Flags() != TCPHEADER_FLAG_FIN|TCPHEADER_FLAG_ACK {
+			tcpSet.ClearFlags(grams.TCPHEADER_FLAG_FIN)
+			for tcpf.Seq() != SEQ+serverHTTPLen+2 || tcpf.Flags() != grams.TCPHEADER_FLAG_FIN|grams.TCPHEADER_FLAG_ACK {
 				err = conn.Decode()
-				if err != nil && !IsEOF(err) || time.Since(deadline) > 0 {
+				if err != nil && !lax.IsEOF(err) || time.Since(deadline) > 0 {
 					errhandler(err)
 					continue START
 				}
-				_log(strcat("[FIN] loop expecting seq ", u32toa(SEQ+serverHTTPLen+2), " got ", u32toa(tcpf.Seq()), "\n"))
+				_log(lax.Strcat("[FIN] loop expecting seq ", lax.U32toa(SEQ+serverHTTPLen+2), " got ", lax.U32toa(tcpf.Seq()), "\n"))
 				spinLoopContent()
 			}
 
-			tcpSet.Flags(TCPHEADER_FLAG_ACK)
+			tcpSet.Flags(grams.TCPHEADER_FLAG_ACK)
 			tcpSet.Ack(ACK + clientHTTPLen + 2)
 			tcpSet.Seq(SEQ + serverHTTPLen + 2)
 			err = conn.SendResponse()
 			if err != nil {
 				errhandler(err)
 			}
-			_logStringer("\nEnd TCP handshake with :", tcpf)
+			lax.LogStringer("\nEnd TCP handshake with :", tcpf)
 			count++
 		}
 		spinLoopContent()
 	}
+}
+
+func spinLoopContent() {
+
 }

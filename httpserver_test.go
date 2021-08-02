@@ -6,8 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"net"
+
+	"github.com/soypat/ether-swtch/grams"
 	"github.com/soypat/ether-swtch/hex"
-	"github.com/soypat/net"
+	"tinygo.org/x/drivers"
 )
 
 func BenchmarkHTTPServer(b *testing.B) {
@@ -27,7 +30,7 @@ func BenchmarkHTTPServer(b *testing.B) {
 
 func TestHTTPServer(t *testing.T) {
 	const N = 1
-	timeout := time.Millisecond // long timeout given testing environment (for debugging)
+	timeout := 600 * 1000 * time.Millisecond // long timeout given testing environment (for debugging)
 	var (
 		mac         = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
 		httpContent = defaultOKHeader + "Hello World!"
@@ -43,9 +46,9 @@ func TestHTTPServer(t *testing.T) {
 
 func testInOutHTTPServer(t testing.TB, dg *TestDatagrammer, httpExpectedContent string) {
 	var (
-		eth, ethExpect   *Ethernet
-		ip, ipExpect     *IPv4
-		tcp, tcpExpect   *TCP
+		eth, ethExpect   *grams.Ethernet
+		ip, ipExpect     *grams.IPv4
+		tcp, tcpExpect   *grams.TCP
 		http, httpExpect *HTTP
 		// SEQ and ACK will contain absolute number used by the TCP connection
 		SEQ, ACK uint32
@@ -67,7 +70,7 @@ func testInOutHTTPServer(t testing.TB, dg *TestDatagrammer, httpExpectedContent 
 		pname := "First [SYN]"
 		eth, ip, tcp, http = parseHTTPPacket(p)
 		if eth == nil || ip == nil || tcp == nil {
-			t.Errorf("%s: unexpected nil frame parsing packet", pname)
+			t.Fatalf("%s: unexpected nil frame parsing packet", pname)
 		}
 		if http != nil {
 			t.Errorf("%s: http frame expected to be nil", pname)
@@ -87,7 +90,7 @@ func testInOutHTTPServer(t testing.TB, dg *TestDatagrammer, httpExpectedContent 
 		// Expected values of TCP as first response hard coded.
 		tcpSet := tcpExpect.Set()
 		tcpSet.Ack(tcp0.Seq() + 1)
-		tcpSet.Flags(TCPHEADER_FLAG_ACK | TCPHEADER_FLAG_SYN)
+		tcpSet.Flags(grams.TCPHEADER_FLAG_ACK | grams.TCPHEADER_FLAG_SYN)
 		tcpSet.Seq(tcp.Seq()) // First seq number is set arbitrarily so it is not checked
 		tcpSet.Checksum(tcp.Checksum())
 
@@ -162,7 +165,7 @@ func testInOutHTTPServer(t testing.TB, dg *TestDatagrammer, httpExpectedContent 
 		// Expected values of TCP as first response hard coded.
 		tcpSet := tcpExpect.Set()
 		tcpSet.Ack(clientHTTPLen + ACK + 1)
-		tcpSet.Flags(TCPHEADER_FLAG_ACK)
+		tcpSet.Flags(grams.TCPHEADER_FLAG_ACK)
 		tcpSet.Seq(SEQ + 1)
 		tcpSet.Checksum(tcp.Checksum())
 
@@ -202,7 +205,7 @@ func testInOutHTTPServer(t testing.TB, dg *TestDatagrammer, httpExpectedContent 
 		// Expected values of TCP as first response hard coded.
 		tcpSet = tcpExpect.Set()
 		tcpSet.Ack(ACK + clientHTTPLen + 1)
-		tcpSet.Flags(TCPHEADER_FLAG_ACK | TCPHEADER_FLAG_PSH | TCPHEADER_FLAG_FIN)
+		tcpSet.Flags(grams.TCPHEADER_FLAG_ACK | grams.TCPHEADER_FLAG_PSH | grams.TCPHEADER_FLAG_FIN)
 		tcpSet.Seq(SEQ + 1)
 		tcpSet.Checksum(tcp.Checksum())
 		errs = assertEqualTCP(tcpExpect, tcp)
@@ -259,7 +262,7 @@ func testInOutHTTPServer(t testing.TB, dg *TestDatagrammer, httpExpectedContent 
 		tcpSet.Ack(ACK + clientHTTPLen + 2)
 		tcpSet.Seq(SEQ + serverHTTPLen + 2)
 		tcpSet.Checksum(tcp.Checksum())
-		tcpSet.Flags(TCPHEADER_FLAG_ACK)
+		tcpSet.Flags(grams.TCPHEADER_FLAG_ACK)
 		errs = assertEqualTCP(tcpExpect, tcp)
 		if errs != nil {
 			t.Errorf("%s: TCP frames differ expect/got: %s", pname, errs)
@@ -282,7 +285,7 @@ type TestDatagrammer struct {
 	buffer []*packet
 }
 
-func (dg *TestDatagrammer) NextPacket(deadline time.Time) (Reader, error) {
+func (dg *TestDatagrammer) NextPacket(deadline time.Time) (drivers.Packet, error) {
 	for {
 		if time.Since(deadline) > 0 {
 			return nil, ErrDeadlineExceed
@@ -296,12 +299,12 @@ func (dg *TestDatagrammer) NextPacket(deadline time.Time) (Reader, error) {
 	}
 }
 
-func (dg *TestDatagrammer) Write(b []byte) (uint16, error) {
+func (dg *TestDatagrammer) Write(b []byte) (int, error) {
 	if len(dg.buffer) == 0 {
 		dg.buffer = []*packet{{}}
 	}
 	dg.buffer[len(dg.buffer)-1].dataOnWire = append(dg.buffer[len(dg.buffer)-1].dataOnWire, b...)
-	return uint16(len(b)), nil
+	return len(b), nil
 }
 
 func (dg *TestDatagrammer) Flush() error {
@@ -326,25 +329,25 @@ func (dg *TestDatagrammer) in(p ...*packet) {
 // FIFO queue and if no packets in the queue it will return nil.
 func (dg *TestDatagrammer) out() *packet { return <-dg.tx }
 
-func parseHTTPPacket(p *packet) (eth *Ethernet, ip *IPv4, tcp *TCP, http *HTTP) {
+func parseHTTPPacket(p *packet) (eth *grams.Ethernet, ip *grams.IPv4, tcp *grams.TCP, http *HTTP) {
 	var n int
 	buff := p.dataOnWire
 	// Read Ethernet frame
 	{
-		if len(buff) < len(eth.data) {
+		if len(buff) < len(eth) {
 			return
 		}
-		eth = &Ethernet{}
+		eth = &grams.Ethernet{}
 		// no VLAN=> read up to 14
-		n += copy(eth.data[n:14], buff)
+		n += copy(eth[n:14], buff)
 	}
 	// Read IP Frame
 	{
-		if len(buff[n:]) < len(ip.data) {
+		if len(buff[n:]) < len(ip) {
 			return
 		}
-		ip = &IPv4{}
-		n += copy(ip.data[:], buff[n:])
+		ip = &grams.IPv4{}
+		n += copy(ip[:], buff[n:])
 	}
 
 	// Define payload lengths
@@ -357,9 +360,9 @@ func parseHTTPPacket(p *packet) (eth *Ethernet, ip *IPv4, tcp *TCP, http *HTTP) 
 		if int(ipPlen) > len(buff[n:]) {
 			panic("buffer smaller than IP declared payload length")
 		}
-		tcp = &TCP{}
+		tcp = &grams.TCP{}
 		n += copy(tcp.Header[:], buff[n:])
-		optionOctets := (tcp.Offset() - 5) * TCP_WORDLEN
+		optionOctets := (tcp.Offset() - 5) * grams.TCP_WORDLEN
 		if optionOctets > 0 {
 			// TCP options present
 			var q int
@@ -374,7 +377,7 @@ func parseHTTPPacket(p *packet) (eth *Ethernet, ip *IPv4, tcp *TCP, http *HTTP) 
 			}
 		}
 	}
-	tcpPlen := int(ipPlen) - int(tcp.Offset())*TCP_WORDLEN
+	tcpPlen := int(ipPlen) - int(tcp.Offset())*grams.TCP_WORDLEN
 	if tcpPlen < 0 {
 		panic("IP declared length mismatch with TCP offset")
 	}

@@ -5,9 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soypat/net"
+	"net"
 
+	"github.com/soypat/ether-swtch/grams"
 	"github.com/soypat/ether-swtch/hex"
+	"github.com/soypat/ether-swtch/lax"
+	"tinygo.org/x/drivers"
 )
 
 func TestUnmarshalSYNPacket(t *testing.T) {
@@ -26,7 +29,7 @@ fa f0 bf 4c 00 00 02 04 05 b4 04 02 08 0a 08 a2
 	}
 	conn := NewTCPConn(rwconn, nil, time.Second, mac, ipAddr, 80)
 	err := conn.Decode()
-	if !IsEOF(err) {
+	if !lax.IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
 	}
 	// Ethernet frame checks
@@ -36,7 +39,7 @@ fa f0 bf 4c 00 00 02 04 05 b4 04 02 08 0a 08 a2
 		t.Error("ethernet: destination MAC address")
 	case !bytes.Equal(ether.Source(), []byte{0x28, 0xd2, 0x44, 0x9a, 0x2f, 0xf3}):
 		t.Error("ethernet: source MAC address")
-	case ether.EtherType() != EtherTypeIPv4:
+	case ether.EtherType() != grams.EtherTypeIPv4:
 		t.Error("ethernet: etherType")
 	case ether.IsVLAN():
 		t.Error("ethernet: VLAN")
@@ -55,7 +58,7 @@ fa f0 bf 4c 00 00 02 04 05 b4 04 02 08 0a 08 a2
 		t.Error("ipv4: flags")
 	case ip.TTL() != 64:
 		t.Error("ipv4: TTL")
-	case ip.Protocol() != IPHEADER_PROTOCOL_TCP:
+	case ip.Protocol() != grams.IPHEADER_PROTOCOL_TCP:
 		t.Error("ipv4: expected TCP protocol")
 	case ip.Checksum() != 0x8A1C:
 		t.Error("ipv4: checksum")
@@ -104,7 +107,7 @@ fa f0 9d 00 00 00`)),
 	}
 	conn := NewTCPConn(rwconn, nil, time.Second, mac, ipAddr, 80)
 	err := conn.Decode()
-	if !IsEOF(err) {
+	if !lax.IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
 	}
 	// Ethernet frame checks
@@ -114,7 +117,7 @@ fa f0 9d 00 00 00`)),
 		t.Error("ethernet: destination MAC address")
 	case !bytes.Equal(ether.Source(), []byte{0x28, 0xd2, 0x44, 0x9a, 0x2f, 0xf3}):
 		t.Error("ethernet: source MAC address")
-	case ether.EtherType() != EtherTypeIPv4:
+	case ether.EtherType() != grams.EtherTypeIPv4:
 		t.Error("ethernet: etherType")
 	case ether.IsVLAN():
 		t.Error("ethernet: VLAN")
@@ -133,7 +136,7 @@ fa f0 9d 00 00 00`)),
 		t.Error("ipv4: flags")
 	case ip.TTL() != 64:
 		t.Error("ipv4: TTL")
-	case ip.Protocol() != IPHEADER_PROTOCOL_TCP:
+	case ip.Protocol() != grams.IPHEADER_PROTOCOL_TCP:
 		t.Error("ipv4: expected TCP protocol")
 	case ip.Checksum() != 0x8A2F:
 		t.Error("ipv4: checksum")
@@ -205,7 +208,7 @@ fa f0 85 44 00 00 47 45 54 20 2f 20 48 54 54 50
 	}
 	conn := NewTCPConn(rwconn, nil, time.Second, mac, ipAddr, 80)
 	err := conn.Decode()
-	if !IsEOF(err) && err != nil {
+	if !lax.IsEOF(err) && err != nil {
 		t.Errorf("expected io.EOF or nil when parsing http with no HTTP frame err, got %q", err)
 	}
 	// Ethernet frame checks
@@ -215,7 +218,7 @@ fa f0 85 44 00 00 47 45 54 20 2f 20 48 54 54 50
 		t.Error("ethernet: destination MAC address")
 	case !bytes.Equal(ether.Source(), []byte{0x28, 0xd2, 0x44, 0x9a, 0x2f, 0xf3}):
 		t.Error("ethernet: source MAC address")
-	case ether.EtherType() != EtherTypeIPv4:
+	case ether.EtherType() != grams.EtherTypeIPv4:
 		t.Error("ethernet: etherType")
 	case ether.IsVLAN():
 		t.Error("ethernet: VLAN")
@@ -234,7 +237,7 @@ fa f0 85 44 00 00 47 45 54 20 2f 20 48 54 54 50
 		t.Error("ipv4: flags")
 	case ip.TTL() != 64:
 		t.Error("ipv4: TTL")
-	case ip.Protocol() != IPHEADER_PROTOCOL_TCP:
+	case ip.Protocol() != grams.IPHEADER_PROTOCOL_TCP:
 		t.Error("ipv4: expected TCP protocol")
 	case ip.Checksum() != 0x88CA:
 		t.Error("ipv4: checksum")
@@ -284,7 +287,7 @@ f8 64 83 e0 00 00`)),
 	}
 	conn := NewTCPConn(rwconn, nil, time.Second, mac, ipAddr, 80)
 	err := conn.Decode()
-	if !IsEOF(err) {
+	if !lax.IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
 	}
 	// Ethernet frame checks
@@ -294,7 +297,7 @@ f8 64 83 e0 00 00`)),
 		t.Error("ethernet: destination MAC address")
 	case !bytes.Equal(ether.Source(), []byte{0x28, 0xd2, 0x44, 0x9a, 0x2f, 0xf3}):
 		t.Error("ethernet: source MAC address")
-	case ether.EtherType() != EtherTypeIPv4:
+	case ether.EtherType() != grams.EtherTypeIPv4:
 		t.Error("ethernet: etherType")
 	case ether.IsVLAN():
 		t.Error("ethernet: VLAN")
@@ -313,7 +316,7 @@ f8 64 83 e0 00 00`)),
 		t.Error("ipv4: flags")
 	case ip.TTL() != 64:
 		t.Error("ipv4: TTL")
-	case ip.Protocol() != IPHEADER_PROTOCOL_TCP:
+	case ip.Protocol() != grams.IPHEADER_PROTOCOL_TCP:
 		t.Error("ipv4: expected TCP protocol")
 	case ip.Checksum() != 0x8A2D:
 		t.Error("ipv4: checksum")
@@ -362,7 +365,7 @@ f8 64 83 e0 00 00`)),
 	}
 	conn := NewTCPConn(rwconn, nil, time.Second, mac, ipAddr, 80)
 	err := conn.Decode()
-	if !IsEOF(err) {
+	if !lax.IsEOF(err) {
 		t.Errorf("expected io.EOF err, got %q", err)
 	}
 	// Ethernet frame checks
@@ -372,7 +375,7 @@ f8 64 83 e0 00 00`)),
 		t.Error("ethernet: destination MAC address")
 	case !bytes.Equal(ether.Source(), []byte{0x28, 0xd2, 0x44, 0x9a, 0x2f, 0xf3}):
 		t.Error("ethernet: source MAC address")
-	case ether.EtherType() != EtherTypeIPv4:
+	case ether.EtherType() != grams.EtherTypeIPv4:
 		t.Error("ethernet: etherType")
 	case ether.IsVLAN():
 		t.Error("ethernet: VLAN")
@@ -391,7 +394,7 @@ f8 64 83 e0 00 00`)),
 		t.Error("ipv4: flags")
 	case ip.TTL() != 64:
 		t.Error("ipv4: TTL")
-	case ip.Protocol() != IPHEADER_PROTOCOL_TCP:
+	case ip.Protocol() != grams.IPHEADER_PROTOCOL_TCP:
 		t.Error("ipv4: expected TCP protocol")
 	case ip.Checksum() != 0x8A2C:
 		t.Error("ipv4: checksum")
@@ -430,9 +433,9 @@ type readbacktest struct {
 	written []byte
 }
 
-func (r *readbacktest) Write(b []byte) (uint16, error) {
+func (r *readbacktest) Write(b []byte) (int, error) {
 	r.written = append(r.written, b...)
-	return uint16(len(b)), nil
+	return len(b), nil
 }
 
 func (r *readbacktest) Reset() error {
@@ -441,7 +444,7 @@ func (r *readbacktest) Reset() error {
 	return nil
 }
 
-func (r *readbacktest) NextPacket(deadline time.Time) (Reader, error) {
+func (r *readbacktest) NextPacket(deadline time.Time) (drivers.Packet, error) {
 	if time.Since(deadline) > 0 {
 		return nil, ErrDeadlineExceed
 	}

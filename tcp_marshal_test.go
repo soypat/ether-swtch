@@ -4,9 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soypat/net"
+	"net"
 
+	"github.com/soypat/ether-swtch/grams"
 	"github.com/soypat/ether-swtch/hex"
+	"github.com/soypat/ether-swtch/lax"
 )
 
 func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
@@ -18,7 +20,7 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 	var tests = []struct {
 		name        string
 		mac         net.HardwareAddr
-		tcpSubframe Frame
+		tcpSubframe grams.Frame
 		data        []byte
 	}{
 		{
@@ -54,7 +56,7 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 		}
 		connTx := NewTCPConn(rwconn, nil, time.Second, defaultMAC, defaultIP, 80)
 		err := connTx.Decode()
-		if !IsEOF(err) && err != nil {
+		if !lax.IsEOF(err) && err != nil {
 			t.Fatal(err) // cannot procede without unmarshalling contents
 		}
 		// Prevent modification of frame by skipping default tcpSetCtl routine.
@@ -71,7 +73,7 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 		}
 		connRx := NewTCPConn(readbackconn, nil, time.Second, defaultMAC, defaultIP, 80)
 		err = connRx.Decode()
-		if !IsEOF(err) && err != nil {
+		if !lax.IsEOF(err) && err != nil {
 			t.Fatal(name, err) // cannot procede without unmarshalling contents
 		}
 		// swap ACK and SEQ back.
@@ -79,13 +81,13 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 		set := connRx.TCP.Set()
 		set.Ack(connRx.TCP.Seq())
 		set.Seq(localSeq)
-		if errs := assertEqualEthernet(connTx.Ethernet, connRx.Ethernet); errs != nil {
+		if errs := assertEqualEthernet(&connTx.Ethernet, &connRx.Ethernet); errs != nil {
 			t.Errorf("%s: Ethernet Tx!=Rx: %v", name, errs)
 		}
-		if errs := assertEqualIPv4(connTx.IPv4, connRx.IPv4); errs != nil {
+		if errs := assertEqualIPv4(&connTx.IPv4, &connRx.IPv4); errs != nil {
 			t.Errorf("%s: IPv4 Tx!=Rx: %v", name, errs)
 		}
-		if errs := assertEqualTCP(connTx.TCP, connRx.TCP); errs != nil {
+		if errs := assertEqualTCP(&connTx.TCP, &connRx.TCP); errs != nil {
 			t.Errorf("%s: TCP Tx!=Rx: %v", name, errs)
 		}
 	}
