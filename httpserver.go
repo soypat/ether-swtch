@@ -16,6 +16,7 @@ import (
 // Not safe for multiple instantiations on same device. Concurrent use not tested.
 func HTTPListenAndServe(dg drivers.Datagrammer, mac net.HardwareAddr, IPAddr net.IP, timeout time.Duration, handler func(URL []byte) (response []byte), errhandler func(error)) {
 	var count uint
+	var err error
 	var _http = HTTP{}
 	var httpf = &_http
 	// HTTP/TCP variables
@@ -24,7 +25,12 @@ func HTTPListenAndServe(dg drivers.Datagrammer, mac net.HardwareAddr, IPAddr net
 		clientHTTPLen, serverHTTPLen, ACK, SEQ uint32
 		response                               []byte
 	)
-	conn := newTCPconn(dg, httpf, timeout, mac, IPAddr, 80)
+	var conn TCPConn
+	err = conn.Init(dg, httpf, timeout, mac, IPAddr, 80)
+	if err != nil {
+		panic(err.Error())
+	}
+	// conn := newTCPconn(dg, httpf, timeout, mac, IPAddr, 80)
 
 	// declare shorthand frames
 	eth := &conn.Ethernet
@@ -32,7 +38,7 @@ func HTTPListenAndServe(dg drivers.Datagrammer, mac net.HardwareAddr, IPAddr net
 	tcpf := &conn.TCP
 	arpf := &conn.ARPv4
 	tcpSet := tcpf.Set()
-	var err error
+
 	var deadline time.Time
 
 START: // START begins search for a new TCP connection.

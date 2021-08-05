@@ -12,6 +12,7 @@ import (
 )
 
 func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
+	var connRx, connTx TCPConn
 	var (
 		defaultMAC = net.HardwareAddr(hex.Decode([]byte(`de ad be ef fe ff`)))
 		defaultIP  = net.IP{192, 168, 1, 5}
@@ -54,8 +55,11 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 		rwconn := &readbacktest{
 			packet: packet{dataOnWire: test.data},
 		}
-		connTx := NewTCPConn(rwconn, nil, time.Second, defaultMAC, defaultIP, 80)
-		err := connTx.Decode()
+		err := connTx.Init(rwconn, nil, time.Second, defaultMAC, defaultIP, 80)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = connTx.Decode()
 		if !lax.IsEOF(err) && err != nil {
 			t.Fatal(err) // cannot procede without unmarshalling contents
 		}
@@ -71,7 +75,10 @@ func TestTCPStabilityMarshalUnmarshal(t *testing.T) {
 				dataOnWire: rwconn.sent(),
 			},
 		}
-		connRx := NewTCPConn(readbackconn, nil, time.Second, defaultMAC, defaultIP, 80)
+		err = connRx.Init(readbackconn, nil, time.Second, defaultMAC, defaultIP, 80)
+		if err != nil {
+			t.Fatal(err)
+		}
 		err = connRx.Decode()
 		if !lax.IsEOF(err) && err != nil {
 			t.Fatal(name, err) // cannot procede without unmarshalling contents

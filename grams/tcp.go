@@ -9,12 +9,13 @@ import (
 	"github.com/soypat/ether-swtch/rfc791"
 )
 
-func (tcp *TCP) Init(pseudoHeader *IPv4) {
-	tcp.PseudoHeaderInfo = pseudoHeader
+func (tcp *TCP) Init(pseudoHeader *IPv4, payload Frame) {
+	tcp.pseudoHeader = pseudoHeader
 	tcp.encoders[0] = tcp.encodePseudo
 	tcp.encoders[1] = tcp.encodeHeader
 	tcp.encoders[2] = tcp.encodeOptions
 	tcp.encoders[3] = tcp.encodeFramer
+	tcp.SubFrame = payload
 }
 
 // There are 9 flags, bits 100 thru 103 are reserved
@@ -41,12 +42,11 @@ const (
 type TCP struct {
 	// frame data
 	Header [20]byte
-	// TCP requires a 12 byte pseudo-header to calculate the checksum
-	PseudoHeaderInfo *IPv4
-
-	// LastSeq    uint32
-	// limited implementation
+	// limited implementation of TCP Options
 	Options [8]byte
+	// TCP requires a 12 byte pseudo-header to calculate the checksum
+	pseudoHeader *IPv4
+
 	// Need subframe to calculate checksum and total length.
 	SubFrame Frame
 
@@ -70,7 +70,7 @@ func (tcp *TCP) encodePseudo(w io.Writer) (n int, err error) {
 	// We take advantage of field layout to avoid heap allocation.
 	// |8 TTL |9 Proto |10 Checksum |12  Source  |16  Destination |20
 	// |set 0 |  nop   | set length | nop        | nop            |
-	ph := tcp.PseudoHeaderInfo
+	ph := tcp.pseudoHeader
 	ln := tcp.FrameLength()
 	set := ph.Set()
 	ttl := ph.TTL()
@@ -214,7 +214,7 @@ func (tcp *TCP) SetChecksum(checksum *rfc791.Checksum) (err error) {
 	Set.Checksum(0)
 	checksum.Reset()
 	// Only write subframe if IP packet len is long enough.
-	hasPayload := tcp.PseudoHeaderInfo.TotalLength()-20-uint16(tcp.Offset())*TCP_WORDLEN > 0
+	hasPayload := tcp.pseudoHeader.TotalLength()-20-uint16(tcp.Offset())*TCP_WORDLEN > 0
 	for i := range tcp.encoders {
 		if i == 3 && !hasPayload {
 			continue

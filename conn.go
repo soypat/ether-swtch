@@ -1,6 +1,7 @@
 package swtch
 
 import (
+	"errors"
 	"time"
 
 	"net"
@@ -39,24 +40,17 @@ type TCPConn struct {
 
 type Trigger func(c *TCPConn) Trigger
 
-func NewTCPConn(rw drivers.Datagrammer, payload grams.Frame, timeout time.Duration, MAC net.HardwareAddr, IP net.IP, port uint16) *TCPConn {
-	conn := newTCPconn(rw, payload, timeout, MAC, IP, port)
-	return &conn
-}
-
-func newTCPconn(rw drivers.Datagrammer, payload grams.Frame, timeout time.Duration, MAC net.HardwareAddr, IP net.IP, port uint16) TCPConn {
-	conn := TCPConn{
-		macAddr: MAC,
-		ipAddr:  IP,
-		port:    port,
-		start:   tcpSetCtl, // TCPConn commanded by ethernet frames as data-link layer
-		timeout: timeout,
+func (conn *TCPConn) Init(w drivers.Datagrammer, payload grams.Frame, timeout time.Duration, MAC net.HardwareAddr, IP net.IP, port uint16) error {
+	if w == nil || len(MAC) < 6 || len(IP) < 4 {
+		return errors.New("init tcp conn: bad value")
 	}
-	conn.TCP.SubFrame = payload
-	conn.conn = rw
-	conn.TCP.Init(&conn.IPv4)
-
-	return conn
+	conn.macAddr = MAC
+	conn.conn = w
+	conn.timeout = timeout
+	conn.start = tcpSetCtl // Start control flow
+	conn.port = port
+	conn.TCP.Init(&conn.IPv4, payload)
+	return nil
 }
 
 func (c *TCPConn) SendResponse() error {

@@ -23,8 +23,12 @@ func TestUnmarshalHTTPGetRequest(t *testing.T) {
 		},
 	}
 	http := &HTTP{}
-	conn := NewTCPConn(rwconn, http, time.Second, mac, ip, 80)
-	err := conn.Decode()
+	var conn TCPConn
+	err := conn.Init(rwconn, http, time.Second, mac, ip, 80)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = conn.Decode()
 	if !lax.IsEOF(err) && err != nil {
 		t.Errorf("expected EOF or nil, got %q", err)
 	}
@@ -49,9 +53,13 @@ func TestHTTPResponse(t *testing.T) {
 			dataOnWire: httpRequestDashData,
 		},
 	}
-	http := &HTTP{}
-	rxconn := NewTCPConn(rwconn, http, time.Second, mac, ip, 80)
-	err := rxconn.Decode()
+	http := &HTTP{Body: []byte(defaultGETRequest)}
+	var rxconn TCPConn
+	err := rxconn.Init(rwconn, http, time.Second, mac, ip, 80)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = rxconn.Decode()
 	if !lax.IsEOF(err) && err != nil {
 		t.Errorf("expected EOF or nil, got %q", err)
 	}
@@ -78,7 +86,11 @@ func TestHTTPResponse(t *testing.T) {
 		},
 	}
 	http = &HTTP{}
-	txconn := NewTCPConn(rwconn, http, time.Second, mac, ip, 80)
+	var txconn TCPConn
+	err = txconn.Init(rwconn, http, time.Second, mac, ip, 80)
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = txconn.Decode()
 	if !lax.IsEOF(err) && err != nil {
 		t.Errorf("expected io.EOF or nil when parsing http with no HTTP frame err, got %q", err)
@@ -131,7 +143,11 @@ fa f0 85 44 00 00 47 45 54 20 2f 20 48 54 54 50
 63 68 65 2d 43 6f 6e 74 72 6f 6c 3a 20 6d 61 78
 2d 61 67 65 3d 30 0d 0a 0d 0a`))
 
-const defaultOKHeader = "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\nPragma: no-cache\r\n\r\n"
+// Typical HTTP transfers
+const (
+	defaultGETRequest = "GET / HTTP/1.1\r\nHost: 192.168.1.5\r\nUser-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:87.0) Gecko/20100101 Firefox/87.0\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\nConnection: keep-alive\r\nUpgrade-Insecure-Requests: 1\r\nCache-Control: max-age=0\r\n\r\n"
+	defaultOKHeader   = "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\nPragma: no-cache\r\n\r\n"
+)
 
 var httpResponseDashData = hex.Decode([]byte(`28 d2 44 9a 2f f3 de ad be ef fe ff 08 00 45 00
 03 1d 2c dc 40 00 40 06 87 39 c0 a8 01 05 c0 a8
