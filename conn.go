@@ -44,6 +44,7 @@ func (conn *TCPConn) Init(w drivers.Datagrammer, payload grams.Frame, timeout ti
 	if w == nil || len(MAC) < 6 || len(IP) < 4 {
 		return errors.New("init tcp conn: bad value")
 	}
+	conn.ipAddr = IP
 	conn.macAddr = MAC
 	conn.conn = w
 	conn.timeout = timeout
