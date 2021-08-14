@@ -121,6 +121,7 @@ START: // START begins search for a new TCP connection.
 				tcpf.Set().Flags(grams.TCPHEADER_FLAG_FIN | grams.TCPHEADER_FLAG_PSH | grams.TCPHEADER_FLAG_ACK)
 				httpf.Body = response
 				err = conn.SendResponse()
+				httpf.Reset()
 				if err != nil {
 					errhandler(err)
 					continue START

@@ -115,7 +115,7 @@ func tcpSet(c *TCPConn) Trigger {
 		// const startSeq = 2560
 		_log("tcpSet [SYN,ACK]")
 		// adds some entropy to sequence number so for loops don't get false positive packets
-		var rand uint32 = uint32(0x0062&c.IPv4.ID()) + uint32(0x00af&tcp.Checksum())
+		var rand uint32 = 2560 //uint32(0x0062&c.IPv4.ID()) + uint32(0x00af&tcp.Checksum())
 		Set.Seq(rand)
 		Set.UrgentPtr(0)
 		Set.Flags(grams.TCPHEADER_FLAG_ACK | grams.TCPHEADER_FLAG_SYN)
