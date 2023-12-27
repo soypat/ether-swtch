@@ -1,8 +1,11 @@
+# Archived
+No longer maintained.
+
+See seqs for a proper TCP/IP stack implementation: https://github.com/soypat/seqs
+
 # ether-swtch
 Low level Ethernet/IP/TCP/HTTP stack marshaller/unmarshaller for use in tiny places.
 
-
-*This is a work in progress. The API is subject to change.*
 
 Below is an example of an HTTP server for the ENC28J60 integrated circuit using TinyGo. Works on the Arduino Mega 2560. Use build tag `-tags=noheap` to reduce heap allocations.
 ```go
